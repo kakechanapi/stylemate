@@ -1,7 +1,7 @@
 {
-  "name": "yosoku-app",
+  "name": "fashion-dx-app",
   "version": "1.0.0",
-  "description": "予測市場アプリ — 賭けじゃなくて、考える習慣",
+  "description": "ファッションDXアプリ",
   "private": true,
   "scripts": {
     "dev": "next dev",
