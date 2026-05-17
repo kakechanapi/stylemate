@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { generateOutfitSuggestion } from '@/lib/claude'
+import { generateOutfitSuggestion } from '@/lib/gemini'
 
 export async function POST(request: Request) {
   const { clothes, weather, tpo } = await request.json()

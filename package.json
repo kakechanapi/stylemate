@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.45.0",
     "date-fns": "^3.6.0",
     "framer-motion": "^12.38.0",
