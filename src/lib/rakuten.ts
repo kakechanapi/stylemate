@@ -14,14 +14,20 @@ export async function searchRakutenFashion(keyword: string): Promise<RakutenProd
     const params = new URLSearchParams({
       applicationId: appId,
       keyword,
-      genreId: '100371', // ファッションジャンル
       hits: '10',
       imageFlag: '1',
       sort: '-reviewCount',
     })
     const res = await fetch(`https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?${params}`)
-    if (!res.ok) return []
+    if (!res.ok) {
+      console.error('Rakuten API error:', res.status, await res.text())
+      return []
+    }
     const data = await res.json()
+    if (data.error) {
+      console.error('Rakuten API error:', data.error, data.error_description)
+      return []
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (data.Items || []).map((item: any) => ({
       name: item.Item.itemName,
@@ -31,7 +37,8 @@ export async function searchRakutenFashion(keyword: string): Promise<RakutenProd
       price: item.Item.itemPrice,
       itemCode: item.Item.itemCode,
     }))
-  } catch {
+  } catch (e) {
+    console.error('Rakuten fetch error:', e)
     return []
   }
 }
