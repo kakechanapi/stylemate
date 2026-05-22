@@ -9,3 +9,6 @@ ios/
 android/
 .next/
 out/
+
+# 個人ダッシュボード（リポが Public のため除外。Private化後はコミットして OK）
+.secretary/
