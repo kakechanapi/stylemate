@@ -7,10 +7,17 @@ const navItems = [
   { href: '/closet', label: 'クローゼット', icon: '👗' },
   { href: '/register', label: '登録', icon: '➕' },
   { href: '/calendar', label: 'カレンダー', icon: '📅' },
+  { href: '/my', label: 'マイ', icon: '👤' },
 ]
+
+// ナビを隠すページ（ログイン関連など）
+const HIDE_NAV_PATHS = ['/login', '/auth']
 
 export default function BottomNav() {
   const pathname = usePathname()
+  if (HIDE_NAV_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+    return null
+  }
   return (
     <nav style={{
       position: 'fixed',

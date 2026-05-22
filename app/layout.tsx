@@ -3,8 +3,9 @@ import './globals.css'
 import BottomNav from '@/components/BottomNav'
 
 export const metadata: Metadata = {
-  title: 'クローゼットAI | AIコーデ提案アプリ',
-  description: 'バーコードスキャンで服を登録して、AIが天気・TPOに合わせたコーデを提案してくれるファッションアプリ',
+  title: 'StyleMate（仮）— AIコーデ提案 × 本人試着',
+  description:
+    '持ってる服を最大限活用し、毎日の最適コーデを AI が提案。足りなければ本人で試着して買える。',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
