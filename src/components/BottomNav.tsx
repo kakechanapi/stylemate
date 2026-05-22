@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 const navItems = [
   { href: '/', label: 'ホーム', icon: '🏠' },
   { href: '/closet', label: 'クローゼット', icon: '👗' },
-  { href: '/register', label: '登録', icon: '➕' },
+  { href: '/friends', label: '友人', icon: '🙂' },
   { href: '/calendar', label: 'カレンダー', icon: '📅' },
   { href: '/my', label: 'マイ', icon: '👤' },
 ]

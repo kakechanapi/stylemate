@@ -48,3 +48,27 @@ export interface ProductSearchResult {
   price?: number
   itemCode?: string
 }
+
+// ─── 友人（試着対象の人物） ───
+export type BodyType = 'スリム' | 'ふつう' | 'がっしり'
+export type Gender = '男性' | '女性' | '指定しない'
+export type Relationship = '友達' | '家族' | '恋人・パートナー' | '自分' | 'その他'
+export type LoraStatus = 'none' | 'pending' | 'training' | 'ready' | 'failed'
+
+export interface Friend {
+  id: string
+  user_id: string
+  name: string
+  height_cm?: number
+  body_type?: BodyType
+  gender?: Gender
+  birthday?: string // YYYY-MM-DD
+  relationship?: Relationship
+  is_me: boolean
+  thumb_url?: string
+  face_photo_count: number
+  lora_status: LoraStatus
+  lora_url?: string
+  lora_trained_at?: string
+  created_at: string
+}

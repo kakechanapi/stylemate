@@ -1,0 +1,100 @@
+// 友人（試着対象人物）の CRUD
+// 顔写真の原本は端末内 IndexedDB、Supabase には枚数のみ記録。
+
+import { createSupabaseServerClient } from './supabase/server'
+import type { Friend, BodyType, Gender, Relationship } from '@/types/fashion'
+
+export async function listFriends(): Promise<Friend[]> {
+  const supabase = await createSupabaseServerClient()
+  const { data, error } = await supabase
+    .from('friends')
+    .select('*')
+    .order('is_me', { ascending: false }) // 自分を先頭
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error('[lib/friends] list error:', error.message)
+    return []
+  }
+  return (data || []) as Friend[]
+}
+
+export async function getFriend(id: string): Promise<Friend | null> {
+  const supabase = await createSupabaseServerClient()
+  const { data, error } = await supabase.from('friends').select('*').eq('id', id).single()
+  if (error) {
+    console.error('[lib/friends] get error:', error.message)
+    return null
+  }
+  return data as Friend
+}
+
+export interface NewFriend {
+  name: string
+  height_cm?: number
+  body_type?: BodyType
+  gender?: Gender
+  birthday?: string
+  relationship?: Relationship
+  is_me?: boolean
+  thumb_url?: string
+  face_photo_count?: number
+}
+
+export async function createFriend(input: NewFriend): Promise<{
+  ok: boolean
+  id?: string
+  error?: string
+}> {
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'not authenticated' }
+
+  const { data, error } = await supabase
+    .from('friends')
+    .insert({
+      user_id: user.id,
+      name: input.name,
+      height_cm: input.height_cm,
+      body_type: input.body_type,
+      gender: input.gender,
+      birthday: input.birthday,
+      relationship: input.relationship,
+      is_me: input.is_me || false,
+      thumb_url: input.thumb_url,
+      face_photo_count: input.face_photo_count || 0,
+      lora_status: (input.face_photo_count || 0) >= 5 ? 'pending' : 'none',
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    console.error('[lib/friends] create error:', error.message)
+    return { ok: false, error: error.message }
+  }
+  return { ok: true, id: data.id }
+}
+
+export async function deleteFriend(id: string): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createSupabaseServerClient()
+  const { error } = await supabase.from('friends').delete().eq('id', id)
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
+export async function updateFacePhotoCount(
+  id: string,
+  count: number
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createSupabaseServerClient()
+  const { error } = await supabase
+    .from('friends')
+    .update({
+      face_photo_count: count,
+      lora_status: count >= 5 ? 'pending' : 'none',
+    })
+    .eq('id', id)
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
