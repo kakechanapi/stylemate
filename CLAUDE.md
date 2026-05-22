@@ -30,7 +30,8 @@
 | Supabase | https://supabase.com/dashboard/project/rsuykemaxgxhbsogrgln |
 | 旧 GiftWear リポ（参照のみ・編集禁止） | `/Users/kakeru.hamamura/FX/giftwear/` |
 | 旧 tomson リポ（既に fork 済・参照不要） | https://github.com/iiumato11-png/tomson |
-| Vercel デプロイ | （まだ未設定、Phase 進行中に作る） |
+| Vercel 本番 | https://stylemate-alpha.vercel.app |
+| 連絡先メール | **kakeruha0602@gmail.com**（ebisol 仕事メアドは使わない） |
 
 ---
 

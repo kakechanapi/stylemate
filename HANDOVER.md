@@ -33,9 +33,14 @@
 | | |
 |---|---|
 | GitHub | https://github.com/kakechanapi/stylemate |
-| 本番デプロイ | （未設定） |
+| 本番デプロイ | https://stylemate-alpha.vercel.app |
 | Supabase | https://supabase.com/dashboard/project/rsuykemaxgxhbsogrgln |
 | 旧 GiftWear（参照のみ） | `/Users/kakeru.hamamura/FX/giftwear/` |
+
+## 📧 ユーザーメインメールアドレス
+
+- **`kakeruha0602@gmail.com`** ← サービス登録・連絡先はこちらを使う
+- ※ `kakeru.hamamura@ebisol.co.jp` は仕事用なので**使わない**
 
 ---
 
