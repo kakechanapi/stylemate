@@ -119,9 +119,9 @@ AI が考慮する**入力情報**：
 
 | Phase | 内容 | 状態 |
 |---|---|---|
-| **0** | fork + 統合 CLAUDE.md + 移植インベントリ + 計画 | 進行中 |
-| **1** | Supabase Auth + 基本ログイン UI | 未着手 |
-| **2** | tomson の mock → Supabase 実データ化 | 未着手 |
+| **0** | fork + 統合 CLAUDE.md + 移植インベントリ + 計画 | ✅ 完了 |
+| **1** | Supabase Auth + 基本ログイン UI | ✅ 完了 |
+| **2** | tomson の mock → Supabase 実データ化 | ✅ 完了 |
 | **3** | 友人マルチ写真登録 UI を移植（GiftWear由来） | 未着手 |
 | **4** | AI 試着 API（IDM-VTON）移植 | 未着手 |
 | **5** | LoRA 訓練組み込み（本人モード起動） | 未着手 |
