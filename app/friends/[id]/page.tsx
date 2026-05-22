@@ -98,6 +98,26 @@ export default async function FriendDetailPage({
           <Row label="関係性" value={friend.relationship || '—'} last />
         </div>
 
+        {/* 試着ボタン */}
+        <Link
+          href={`/tryon/${friend.id}`}
+          style={{
+            display: 'block',
+            background: 'linear-gradient(135deg, #E8A0BF, #C4779B)',
+            color: '#fff',
+            borderRadius: 16,
+            padding: 16,
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            textAlign: 'center',
+            textDecoration: 'none',
+            marginBottom: 16,
+            boxShadow: '0 4px 14px rgba(196,121,155,0.3)',
+          }}
+        >
+          👗 服を試着させる
+        </Link>
+
         {/* 本人モード状態 */}
         <div
           style={{
