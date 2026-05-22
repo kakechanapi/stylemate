@@ -9,9 +9,10 @@
 
 - **何**：AI ファッションコーデ × 本人試着の統合アプリ
 - **由来**：自作 GiftWear + 友人作 tomson を統合
-- **現状**：Phase 2 まで完了（ログイン + クローゼットがSupabaseで動く）
-- **次**：Phase 3（友人マルチ写真登録 UI の移植）
+- **現状**：**Phase 4 完了 + Vercel 本番 + Google ログイン動作中**
+- **次**：Phase 5（LoRA 本人モード）or 動作確認 or Phase 6
 - **開発者**：kakechanapi（一人開発、Claude Code でペアプロ）
+- **本番URL**：https://stylemate-alpha.vercel.app
 
 ---
 
