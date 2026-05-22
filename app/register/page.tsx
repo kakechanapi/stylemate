@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { ProductSearchResult } from '@/types/fashion'
+import { useRouter } from 'next/navigation'
+import { ProductSearchResult, Category } from '@/types/fashion'
+import { saveClothingAction } from './actions'
 
 type Tab = 'search' | 'barcode' | 'manual'
 
@@ -22,6 +24,7 @@ const tpoLabels: Record<string, string> = {
 }
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [tab, setTab] = useState<Tab>('search')
   const [keyword, setKeyword] = useState('')
   const [searchResults, setSearchResults] = useState<ProductSearchResult[]>([])
@@ -36,6 +39,7 @@ export default function RegisterPage() {
   const [selectedTpo, setSelectedTpo] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const handleSearch = async () => {
     if (!keyword.trim()) return
@@ -61,17 +65,31 @@ export default function RegisterPage() {
   const handleSave = async () => {
     if (!name.trim()) return
     setSaving(true)
-    // TODO: Save to Supabase when auth is implemented
-    await new Promise(r => setTimeout(r, 800))
+    setSaveError('')
+    const result = await saveClothingAction({
+      name: name.trim(),
+      brand: brand.trim() || undefined,
+      category: category as Category,
+      color: color.trim() || undefined,
+      image_url: selected?.imageUrl || undefined,
+      product_url: selected?.productUrl || undefined,
+      tpo_tags: selectedTpo,
+    })
+    if (!result.ok) {
+      setSaveError(result.error || '保存に失敗しました')
+      setSaving(false)
+      return
+    }
     setSaved(true)
     setSaving(false)
-    // Reset
+    // 2秒後にリセット & クローゼットへ遷移
     setTimeout(() => {
       setName(''); setBrand(''); setCategory('tops'); setColor('')
       setSelectedTpo([]); setSelected(null); setSaved(false)
       setKeyword(''); setSearchResults([])
       setTab('search')
-    }, 2000)
+      router.push('/closet')
+    }, 1500)
   }
 
   const toggleTpo = (t: string) => {
@@ -381,6 +399,11 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            {saveError && (
+              <p style={{ color: '#d63384', fontSize: '0.8rem', lineHeight: 1.5 }}>
+                {saveError}
+              </p>
+            )}
             <button
               onClick={handleSave}
               disabled={!name.trim() || saving || saved}
