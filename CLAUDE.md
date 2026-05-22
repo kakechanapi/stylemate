@@ -7,6 +7,46 @@
 
 ---
 
+## 📚 新しい Claude セッションで最初に読むファイル（**順番厳守**）
+
+1. **このファイル（CLAUDE.md）** ← 今読んでいる。ビジョン・現状・ロードマップ
+2. **`.secretary/CLAUDE.md`** ← ダッシュボード・秘書システムの使い方
+3. **`.secretary/projects/stylemate-phases.md`** ← Phase ごとの **最新進捗**
+4. **`MIGRATION_PLAN.md`** ← Phase の詳細手順（着手前条件・完了条件）
+5. **`MIGRATION_INVENTORY.md`** ← GiftWear から移植するもの一覧
+6. **`.secretary/todos/<今日の日付>.md`** ← 今日のTODO（あれば）
+
+これだけ読めば、開発状況・方針・次のアクションが完全に把握できる。
+
+ユーザーは時短重視なので、不必要な質問はしない。判断できるものは自動で進める。
+
+---
+
+## 🔑 重要な参照先・アカウント
+
+| 何 | 場所 |
+|---|---|
+| GitHub リポ | https://github.com/kakechanapi/stylemate |
+| Supabase | https://supabase.com/dashboard/project/rsuykemaxgxhbsogrgln |
+| 旧 GiftWear リポ（参照のみ・編集禁止） | `/Users/kakeru.hamamura/FX/giftwear/` |
+| 旧 tomson リポ（既に fork 済・参照不要） | https://github.com/iiumato11-png/tomson |
+| Vercel デプロイ | （まだ未設定、Phase 進行中に作る） |
+
+---
+
+## 💻 ローカル開発
+
+```bash
+cd /Users/kakeru.hamamura/FX/stylemate
+npm run dev   # http://localhost:3000
+npm run build # 本番ビルド確認
+```
+
+環境変数は `.env.local`（git管理外）。Supabase / Replicate / 楽天アフィID は設定済。
+天気・Gemini・楽天検索の API キーは未設定（Phase 進行で追加）。
+
+---
+
 ## 🎯 ミッション
 
 **「持ってる服を最大限活用し、毎日の最適コーデを AI が提案。足りなければ本人で試着して買える」**
