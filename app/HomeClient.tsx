@@ -226,7 +226,7 @@ export default function HomeClient({ clothes, userEmail, upcomingEvents, friendN
               textAlign: 'center',
               color: '#C4779B',
               fontWeight: 700,
-              fontSize: '0.85rem',
+              fontSize: '0.82rem',
               textDecoration: 'none',
             }}
           >
@@ -243,11 +243,28 @@ export default function HomeClient({ clothes, userEmail, upcomingEvents, friendN
               textAlign: 'center',
               color: '#C4779B',
               fontWeight: 700,
-              fontSize: '0.85rem',
+              fontSize: '0.82rem',
               textDecoration: 'none',
             }}
           >
             📅 予定を追加
+          </Link>
+          <Link
+            href="/style"
+            style={{
+              flex: 1,
+              background: '#fff',
+              border: '2px solid #E8A0BF',
+              borderRadius: 16,
+              padding: 12,
+              textAlign: 'center',
+              color: '#C4779B',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              textDecoration: 'none',
+            }}
+          >
+            💞 好み学習
           </Link>
         </div>
       </div>

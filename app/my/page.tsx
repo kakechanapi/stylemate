@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getStyleProfile } from '@/lib/style'
 import { signOut } from '../auth/actions'
 
 export default async function MyPage() {
@@ -7,6 +8,7 @@ export default async function MyPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  const styleProfile = await getStyleProfile()
 
   return (
     <div style={{ padding: '24px 16px' }}>
@@ -61,6 +63,63 @@ export default async function MyPage() {
           </div>
         </div>
       </div>
+
+      {/* 嗜好カード */}
+      <Link
+        href="/style"
+        style={{
+          display: 'block',
+          background:
+            styleProfile && styleProfile.tags.length > 0
+              ? 'linear-gradient(135deg, #FFF0F6, #FFE4F0)'
+              : '#fff',
+          border: '1px solid #FFE4F0',
+          borderRadius: 16,
+          padding: 16,
+          marginBottom: 20,
+          textDecoration: 'none',
+          color: 'inherit',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: '1.2rem' }}>💞</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#333' }}>
+            あなたの嗜好
+          </span>
+          <span style={{ marginLeft: 'auto', color: '#bbb', fontSize: '1rem' }}>›</span>
+        </div>
+        {styleProfile && styleProfile.tags.length > 0 ? (
+          <>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+              {styleProfile.tags.map((t) => (
+                <span
+                  key={t}
+                  style={{
+                    background: '#fff',
+                    color: '#C4779B',
+                    border: '1px solid #E8A0BF',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    padding: '3px 10px',
+                    borderRadius: 12,
+                  }}
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+            {styleProfile.summary && (
+              <p style={{ fontSize: '0.75rem', color: '#666', lineHeight: 1.5 }}>
+                {styleProfile.summary}
+              </p>
+            )}
+          </>
+        ) : (
+          <p style={{ fontSize: '0.78rem', color: '#999', lineHeight: 1.5 }}>
+            服をスワイプして好みを教えると、AI コーデ提案の精度が上がります
+          </p>
+        )}
+      </Link>
 
       {/* メニュー（Phase ごとに増やす） */}
       <section style={{ marginBottom: 20 }}>

@@ -1,11 +1,12 @@
 // AI コーデ提案
 // - 天気 / TPO / 予定 を考慮
 // - 「同じ相手と最近着た服」を自動で除外（被り回避）
-//   eventId が渡されれば、その予定の friend_ids から recent を引く
+// - スワイプで学習したユーザー嗜好を自動付与
 
 import { NextResponse } from 'next/server'
 import { generateOutfitSuggestion } from '@/lib/gemini'
 import { recentClothesWithFriends } from '@/lib/events'
+import { getStyleProfile } from '@/lib/style'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
@@ -39,12 +40,21 @@ export async function POST(request: Request) {
     recentClothIds = await recentClothesWithFriends(body.friend_ids, 5)
   }
 
+  // 嗜好タグ：明示指定がなければ style_profiles から自動取得
+  let styleTags: string[] | undefined = body.styleTags
+  if (!styleTags) {
+    const profile = await getStyleProfile()
+    if (profile && profile.tags && profile.tags.length > 0) {
+      styleTags = profile.tags
+    }
+  }
+
   const result = await generateOutfitSuggestion(body.clothes || [], {
     weather: body.weather || null,
     tpo,
     scheduleTitle,
-    styleTags: body.styleTags,
+    styleTags,
     recentClothIds,
   })
-  return NextResponse.json({ ...result, recentClothIds, scheduleTitle })
+  return NextResponse.json({ ...result, recentClothIds, scheduleTitle, styleTags })
 }
