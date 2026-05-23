@@ -30,9 +30,13 @@ export default function CalendarHybridView({
   const [selectedDate, setSelectedDate] = useState<string>(toDateStr(today))
   const [, startTransition] = useTransition()
 
-  // 横スワイプで月切替
+  // 横スワイプ（指追従式）で月切替
   const swipeStartX = useRef<number | null>(null)
   const swipeStartY = useRef<number | null>(null)
+  const calContainerRef = useRef<HTMLDivElement | null>(null)
+  const [dragX, setDragX] = useState(0)
+  const [animating, setAnimating] = useState(false)
+  const isHSwipe = useRef(false) // 横スワイプ確定フラグ
 
   // 月情報
   const year = currentMonth.getFullYear()
@@ -95,23 +99,70 @@ export default function CalendarHybridView({
         </button>
       </div>
 
-      {/* カレンダー（横スワイプで月切替） */}
+      {/* カレンダー（指追従式スワイプ） */}
       <div
+        ref={calContainerRef}
         onTouchStart={(e) => {
+          if (animating) return
           swipeStartX.current = e.touches[0].clientX
           swipeStartY.current = e.touches[0].clientY
+          isHSwipe.current = false
         }}
-        onTouchEnd={(e) => {
+        onTouchMove={(e) => {
           if (swipeStartX.current === null || swipeStartY.current === null) return
-          const dx = e.changedTouches[0].clientX - swipeStartX.current
-          const dy = e.changedTouches[0].clientY - swipeStartY.current
-          // 横方向のスワイプを優先（縦は無視）
-          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
-            if (dx < 0) nextMonth()
-            else prevMonth()
+          const dx = e.touches[0].clientX - swipeStartX.current
+          const dy = e.touches[0].clientY - swipeStartY.current
+          // 最初の数px で横/縦を判定（縦スクロールを邪魔しないため）
+          if (!isHSwipe.current) {
+            if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+              isHSwipe.current = true
+            } else if (Math.abs(dy) > 8) {
+              // 縦スクロール扱い → 以後は無視
+              swipeStartX.current = null
+              swipeStartY.current = null
+              return
+            }
+          }
+          if (isHSwipe.current) {
+            setDragX(dx)
+          }
+        }}
+        onTouchEnd={() => {
+          if (!isHSwipe.current) {
+            swipeStartX.current = null
+            swipeStartY.current = null
+            return
+          }
+          const width = calContainerRef.current?.offsetWidth || 320
+          const threshold = 60
+          setAnimating(true)
+          if (Math.abs(dragX) > threshold) {
+            // しっかりスライドアウトしてから月切替
+            const target = dragX > 0 ? width : -width
+            setDragX(target)
+            setTimeout(() => {
+              if (dragX > 0) prevMonth()
+              else nextMonth()
+              // 月切替後は中央に戻す（瞬時、新月データはサーバから来る）
+              setDragX(0)
+              setAnimating(false)
+            }, 220)
+          } else {
+            // スプリングバック
+            setDragX(0)
+            setTimeout(() => setAnimating(false), 200)
           }
           swipeStartX.current = null
           swipeStartY.current = null
+          isHSwipe.current = false
+        }}
+        onTouchCancel={() => {
+          setAnimating(true)
+          setDragX(0)
+          setTimeout(() => setAnimating(false), 200)
+          swipeStartX.current = null
+          swipeStartY.current = null
+          isHSwipe.current = false
         }}
         style={{
           background: '#fff',
@@ -120,6 +171,10 @@ export default function CalendarHybridView({
           boxShadow: '0 2px 12px rgba(232,160,191,0.12)',
           marginBottom: 16,
           touchAction: 'pan-y',
+          transform: `translateX(${dragX}px)`,
+          transition: animating ? 'transform 0.22s ease-out' : 'none',
+          opacity: 1 - Math.min(Math.abs(dragX) / 700, 0.35),
+          willChange: 'transform',
         }}
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
@@ -213,21 +268,30 @@ export default function CalendarHybridView({
           })}
         </div>
 
-        {/* 凡例 + スワイプヒント */}
+        {/* スワイプヒント */}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
             alignItems: 'center',
             fontSize: '0.62rem',
-            color: '#bbb',
+            color: dragX !== 0 ? '#C4779B' : '#bbb',
             marginTop: 8,
             paddingTop: 8,
             borderTop: '1px solid #FFE4F0',
+            fontWeight: dragX !== 0 ? 700 : 400,
+            transition: 'color 0.15s',
           }}
         >
-          <span>← 横スワイプで月切替 →</span>
-          <span style={{ flex: 1 }} />
+          {dragX === 0 ? (
+            <span>👆 左右にスライドで月を切替</span>
+          ) : dragX > 30 ? (
+            <span>← {monthLabel(year, month - 1)}</span>
+          ) : dragX < -30 ? (
+            <span>{monthLabel(year, month + 1)} →</span>
+          ) : (
+            <span>続けてスライド…</span>
+          )}
         </div>
         <div
           style={{
@@ -641,4 +705,9 @@ function isSameDay(a: Date, b: Date): boolean {
 function formatJp(dateStr: string): string {
   const d = new Date(dateStr)
   return d.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
+}
+function monthLabel(year: number, monthIndex: number): string {
+  // -1 や 12 を正規化
+  const d = new Date(year, monthIndex, 1)
+  return `${d.getFullYear() === year ? '' : `${d.getFullYear()}年`}${d.getMonth() + 1}月`
 }
