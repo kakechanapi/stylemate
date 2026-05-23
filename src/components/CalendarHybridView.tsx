@@ -99,84 +99,18 @@ export default function CalendarHybridView({
         </button>
       </div>
 
-      {/* カレンダー（指追従式スワイプ） */}
+      {/* カレンダー（iOS式 3ヶ月ストリップ・指追従ページング） */}
       <div
-        ref={calContainerRef}
-        onTouchStart={(e) => {
-          if (animating) return
-          swipeStartX.current = e.touches[0].clientX
-          swipeStartY.current = e.touches[0].clientY
-          isHSwipe.current = false
-        }}
-        onTouchMove={(e) => {
-          if (swipeStartX.current === null || swipeStartY.current === null) return
-          const dx = e.touches[0].clientX - swipeStartX.current
-          const dy = e.touches[0].clientY - swipeStartY.current
-          // 最初の数px で横/縦を判定（縦スクロールを邪魔しないため）
-          if (!isHSwipe.current) {
-            if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
-              isHSwipe.current = true
-            } else if (Math.abs(dy) > 8) {
-              // 縦スクロール扱い → 以後は無視
-              swipeStartX.current = null
-              swipeStartY.current = null
-              return
-            }
-          }
-          if (isHSwipe.current) {
-            setDragX(dx)
-          }
-        }}
-        onTouchEnd={() => {
-          if (!isHSwipe.current) {
-            swipeStartX.current = null
-            swipeStartY.current = null
-            return
-          }
-          const width = calContainerRef.current?.offsetWidth || 320
-          const threshold = 60
-          setAnimating(true)
-          if (Math.abs(dragX) > threshold) {
-            // しっかりスライドアウトしてから月切替
-            const target = dragX > 0 ? width : -width
-            setDragX(target)
-            setTimeout(() => {
-              if (dragX > 0) prevMonth()
-              else nextMonth()
-              // 月切替後は中央に戻す（瞬時、新月データはサーバから来る）
-              setDragX(0)
-              setAnimating(false)
-            }, 220)
-          } else {
-            // スプリングバック
-            setDragX(0)
-            setTimeout(() => setAnimating(false), 200)
-          }
-          swipeStartX.current = null
-          swipeStartY.current = null
-          isHSwipe.current = false
-        }}
-        onTouchCancel={() => {
-          setAnimating(true)
-          setDragX(0)
-          setTimeout(() => setAnimating(false), 200)
-          swipeStartX.current = null
-          swipeStartY.current = null
-          isHSwipe.current = false
-        }}
         style={{
           background: '#fff',
           borderRadius: 20,
           padding: 12,
           boxShadow: '0 2px 12px rgba(232,160,191,0.12)',
           marginBottom: 16,
-          touchAction: 'pan-y',
-          transform: `translateX(${dragX}px)`,
-          transition: animating ? 'transform 0.22s ease-out' : 'none',
-          opacity: 1 - Math.min(Math.abs(dragX) / 700, 0.35),
-          willChange: 'transform',
+          overflow: 'hidden',
         }}
       >
+        {/* 曜日ヘッダ（固定） */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
           {['日', '月', '火', '水', '木', '金', '土'].map((d, i) => (
             <div
@@ -193,106 +127,121 @@ export default function CalendarHybridView({
             </div>
           ))}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-          {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`empty-${i}`} />
-          ))}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-            const hasEvent = !!eventsByDate[dateStr]
-            const hasOutfit = !!outfitsByDate[dateStr]
-            const isToday = isSameDay(today, new Date(year, month, day))
-            const isSelected = dateStr === selectedDate
-            const dayOfWeek = (firstDay + i) % 7
-            return (
-              <button
-                key={day}
-                onClick={() => setSelectedDate(dateStr)}
-                style={{
-                  position: 'relative',
-                  aspectRatio: '1',
-                  padding: 0,
-                  borderRadius: 8,
-                  background: isSelected
-                    ? 'linear-gradient(135deg, #E8A0BF, #C4779B)'
-                    : isToday
-                      ? '#FFF0F6'
-                      : 'transparent',
-                  border: isToday && !isSelected ? '2px solid #E8A0BF' : '2px solid transparent',
-                  color: isSelected
-                    ? '#fff'
-                    : isToday
-                      ? '#C4779B'
-                      : dayOfWeek === 0
-                        ? '#F87171'
-                        : dayOfWeek === 6
-                          ? '#60A5FA'
-                          : '#333',
-                  fontSize: '0.85rem',
-                  fontWeight: isToday || isSelected ? 700 : 400,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 1,
-                }}
-              >
-                <span>{day}</span>
-                {/* 印 */}
-                <div style={{ display: 'flex', gap: 2, height: 4 }}>
-                  {hasEvent && (
-                    <span
-                      style={{
-                        width: 4,
-                        height: 4,
-                        borderRadius: '50%',
-                        background: isSelected ? '#fff' : '#60A5FA',
-                      }}
-                    />
-                  )}
-                  {hasOutfit && (
-                    <span
-                      style={{
-                        width: 4,
-                        height: 4,
-                        borderRadius: '50%',
-                        background: isSelected ? '#fff' : '#C4779B',
-                      }}
-                    />
-                  )}
-                </div>
-              </button>
-            )
-          })}
-        </div>
 
-        {/* スワイプヒント */}
+        {/* 3ヶ月ストリップ（prev / current / next） */}
         <div
+          ref={calContainerRef}
+          onTouchStart={(e) => {
+            if (animating) return
+            swipeStartX.current = e.touches[0].clientX
+            swipeStartY.current = e.touches[0].clientY
+            isHSwipe.current = false
+          }}
+          onTouchMove={(e) => {
+            if (swipeStartX.current === null || swipeStartY.current === null) return
+            const dx = e.touches[0].clientX - swipeStartX.current
+            const dy = e.touches[0].clientY - swipeStartY.current
+            if (!isHSwipe.current) {
+              if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+                isHSwipe.current = true
+              } else if (Math.abs(dy) > 8) {
+                swipeStartX.current = null
+                swipeStartY.current = null
+                return
+              }
+            }
+            if (isHSwipe.current) {
+              setDragX(dx)
+            }
+          }}
+          onTouchEnd={() => {
+            if (!isHSwipe.current) {
+              swipeStartX.current = null
+              swipeStartY.current = null
+              return
+            }
+            const width = calContainerRef.current?.offsetWidth || 320
+            const threshold = width * 0.2 // 20%以上でページング
+            setAnimating(true)
+            if (dragX > threshold) {
+              // 前月へ：右にフルスライド
+              setDragX(width)
+              setTimeout(() => {
+                prevMonth()
+                setDragX(0)
+                setAnimating(false)
+              }, 260)
+            } else if (dragX < -threshold) {
+              // 次月へ：左にフルスライド
+              setDragX(-width)
+              setTimeout(() => {
+                nextMonth()
+                setDragX(0)
+                setAnimating(false)
+              }, 260)
+            } else {
+              // スプリングバック
+              setDragX(0)
+              setTimeout(() => setAnimating(false), 200)
+            }
+            swipeStartX.current = null
+            swipeStartY.current = null
+            isHSwipe.current = false
+          }}
+          onTouchCancel={() => {
+            setAnimating(true)
+            setDragX(0)
+            setTimeout(() => setAnimating(false), 200)
+            swipeStartX.current = null
+            swipeStartY.current = null
+            isHSwipe.current = false
+          }}
           style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            fontSize: '0.62rem',
-            color: dragX !== 0 ? '#C4779B' : '#bbb',
-            marginTop: 8,
-            paddingTop: 8,
-            borderTop: '1px solid #FFE4F0',
-            fontWeight: dragX !== 0 ? 700 : 400,
-            transition: 'color 0.15s',
+            position: 'relative',
+            overflow: 'hidden',
+            touchAction: 'pan-y',
           }}
         >
-          {dragX === 0 ? (
-            <span>👆 左右にスライドで月を切替</span>
-          ) : dragX > 30 ? (
-            <span>← {monthLabel(year, month - 1)}</span>
-          ) : dragX < -30 ? (
-            <span>{monthLabel(year, month + 1)} →</span>
-          ) : (
-            <span>続けてスライド…</span>
-          )}
+          <div
+            style={{
+              display: 'flex',
+              width: '300%',
+              transform: `translateX(calc(-33.3333% + ${dragX}px))`,
+              transition: animating ? 'transform 0.26s cubic-bezier(0.32, 0.72, 0, 1)' : 'none',
+              willChange: 'transform',
+            }}
+          >
+            <MonthGrid
+              year={year}
+              month={month - 1}
+              today={today}
+              selectedDate={selectedDate}
+              eventsByDate={eventsByDate}
+              outfitsByDate={outfitsByDate}
+              onSelectDate={setSelectedDate}
+            />
+            <MonthGrid
+              year={year}
+              month={month}
+              today={today}
+              selectedDate={selectedDate}
+              eventsByDate={eventsByDate}
+              outfitsByDate={outfitsByDate}
+              onSelectDate={setSelectedDate}
+            />
+            <MonthGrid
+              year={year}
+              month={month + 1}
+              today={today}
+              selectedDate={selectedDate}
+              eventsByDate={eventsByDate}
+              outfitsByDate={outfitsByDate}
+              onSelectDate={setSelectedDate}
+            />
+          </div>
         </div>
+
+        {/* 凡例 */}
         <div
           style={{
             display: 'flex',
@@ -300,7 +249,9 @@ export default function CalendarHybridView({
             gap: 16,
             fontSize: '0.66rem',
             color: '#999',
-            marginTop: 4,
+            marginTop: 10,
+            paddingTop: 8,
+            borderTop: '1px solid #FFE4F0',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -695,6 +646,110 @@ function ActionSheet({
   )
 }
 
+// ─── MonthGrid（1ヶ月分の日付グリッド） ───
+function MonthGrid({
+  year,
+  month, // 0-11（範囲外OK、Dateで正規化される）
+  today,
+  selectedDate,
+  eventsByDate,
+  outfitsByDate,
+  onSelectDate,
+}: {
+  year: number
+  month: number
+  today: Date
+  selectedDate: string
+  eventsByDate: Record<string, EventItem[]>
+  outfitsByDate: Record<string, Outfit[]>
+  onSelectDate: (s: string) => void
+}) {
+  // 月を正規化（month=-1 → 前年12月、month=12 → 翌年1月）
+  const normalizedFirst = new Date(year, month, 1)
+  const ny = normalizedFirst.getFullYear()
+  const nm = normalizedFirst.getMonth()
+  const firstDay = normalizedFirst.getDay()
+  const daysInMonth = new Date(ny, nm + 1, 0).getDate()
+
+  return (
+    <div style={{ width: '33.3333%', flexShrink: 0, padding: '0 2px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        {Array.from({ length: firstDay }).map((_, i) => (
+          <div key={`empty-${i}`} />
+        ))}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day = i + 1
+          const dateStr = `${ny}-${String(nm + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const hasEvent = !!eventsByDate[dateStr]
+          const hasOutfit = !!outfitsByDate[dateStr]
+          const isToday = isSameDay(today, new Date(ny, nm, day))
+          const isSelected = dateStr === selectedDate
+          const dayOfWeek = (firstDay + i) % 7
+          return (
+            <button
+              key={day}
+              onClick={() => onSelectDate(dateStr)}
+              style={{
+                position: 'relative',
+                aspectRatio: '1',
+                padding: 0,
+                borderRadius: 8,
+                background: isSelected
+                  ? 'linear-gradient(135deg, #E8A0BF, #C4779B)'
+                  : isToday
+                    ? '#FFF0F6'
+                    : 'transparent',
+                border: isToday && !isSelected ? '2px solid #E8A0BF' : '2px solid transparent',
+                color: isSelected
+                  ? '#fff'
+                  : isToday
+                    ? '#C4779B'
+                    : dayOfWeek === 0
+                      ? '#F87171'
+                      : dayOfWeek === 6
+                        ? '#60A5FA'
+                        : '#333',
+                fontSize: '0.85rem',
+                fontWeight: isToday || isSelected ? 700 : 400,
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1,
+              }}
+            >
+              <span>{day}</span>
+              <div style={{ display: 'flex', gap: 2, height: 4 }}>
+                {hasEvent && (
+                  <span
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: '50%',
+                      background: isSelected ? '#fff' : '#60A5FA',
+                    }}
+                  />
+                )}
+                {hasOutfit && (
+                  <span
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: '50%',
+                      background: isSelected ? '#fff' : '#C4779B',
+                    }}
+                  />
+                )}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── helpers ───
 function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -705,9 +760,4 @@ function isSameDay(a: Date, b: Date): boolean {
 function formatJp(dateStr: string): string {
   const d = new Date(dateStr)
   return d.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
-}
-function monthLabel(year: number, monthIndex: number): string {
-  // -1 や 12 を正規化
-  const d = new Date(year, monthIndex, 1)
-  return `${d.getFullYear() === year ? '' : `${d.getFullYear()}年`}${d.getMonth() + 1}月`
 }
