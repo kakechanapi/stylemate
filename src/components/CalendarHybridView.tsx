@@ -30,6 +30,10 @@ export default function CalendarHybridView({
   const [selectedDate, setSelectedDate] = useState<string>(toDateStr(today))
   const [, startTransition] = useTransition()
 
+  // 横スワイプで月切替
+  const swipeStartX = useRef<number | null>(null)
+  const swipeStartY = useRef<number | null>(null)
+
   // 月情報
   const year = currentMonth.getFullYear()
   const month = currentMonth.getMonth()
@@ -91,14 +95,31 @@ export default function CalendarHybridView({
         </button>
       </div>
 
-      {/* カレンダー */}
+      {/* カレンダー（横スワイプで月切替） */}
       <div
+        onTouchStart={(e) => {
+          swipeStartX.current = e.touches[0].clientX
+          swipeStartY.current = e.touches[0].clientY
+        }}
+        onTouchEnd={(e) => {
+          if (swipeStartX.current === null || swipeStartY.current === null) return
+          const dx = e.changedTouches[0].clientX - swipeStartX.current
+          const dy = e.changedTouches[0].clientY - swipeStartY.current
+          // 横方向のスワイプを優先（縦は無視）
+          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+            if (dx < 0) nextMonth()
+            else prevMonth()
+          }
+          swipeStartX.current = null
+          swipeStartY.current = null
+        }}
         style={{
           background: '#fff',
           borderRadius: 20,
           padding: 12,
           boxShadow: '0 2px 12px rgba(232,160,191,0.12)',
           marginBottom: 16,
+          touchAction: 'pan-y',
         }}
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
@@ -192,7 +213,22 @@ export default function CalendarHybridView({
           })}
         </div>
 
-        {/* 凡例 */}
+        {/* 凡例 + スワイプヒント */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '0.62rem',
+            color: '#bbb',
+            marginTop: 8,
+            paddingTop: 8,
+            borderTop: '1px solid #FFE4F0',
+          }}
+        >
+          <span>← 横スワイプで月切替 →</span>
+          <span style={{ flex: 1 }} />
+        </div>
         <div
           style={{
             display: 'flex',
@@ -200,9 +236,7 @@ export default function CalendarHybridView({
             gap: 16,
             fontSize: '0.66rem',
             color: '#999',
-            marginTop: 8,
-            paddingTop: 8,
-            borderTop: '1px solid #FFE4F0',
+            marginTop: 4,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -259,6 +293,7 @@ export default function CalendarHybridView({
                 outfit={o}
                 clothesMap={clothesMap}
                 friendNames={friendNames}
+                onEdit={() => router.push(`/outfits/${o.id}/edit`)}
                 onDelete={() => {
                   if (!confirm('この記録を削除しますか？')) return
                   startTransition(async () => {
@@ -396,11 +431,13 @@ function OutfitRow({
   outfit,
   clothesMap,
   friendNames,
+  onEdit,
   onDelete,
 }: {
   outfit: Outfit
   clothesMap: Record<string, { name: string; image_url?: string }>
   friendNames: Record<string, string>
+  onEdit: () => void
   onDelete: () => void
 }) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -499,7 +536,10 @@ function OutfitRow({
         <ActionSheet
           title="着用記録"
           onClose={() => setMenuOpen(false)}
-          actions={[{ label: '削除', onClick: onDelete, danger: true }]}
+          actions={[
+            { label: '編集（詳細を見る）', onClick: onEdit },
+            { label: '削除', onClick: onDelete, danger: true },
+          ]}
         />
       )}
     </>

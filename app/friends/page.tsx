@@ -1,25 +1,38 @@
-// 友人一覧（試着対象人物）
+// 会う相手の一覧（被り回避コーデ提案に紐付ける人物）
+// 注：「自分」は is_me=true で別管理 → マイページから操作
 import Link from 'next/link'
 import { listFriends } from '@/lib/friends'
 import FriendCard from '@/components/FriendCard'
 
 export default async function FriendsPage() {
-  const friends = await listFriends()
+  const all = await listFriends()
+  // 「自分」を除いた人だけ表示
+  const friends = all.filter((f) => !f.is_me)
 
   return (
     <div style={{ padding: '20px 16px' }}>
-      <div
+      <header
         style={{
           display: 'flex',
-          justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 20,
+          marginBottom: 16,
+          gap: 10,
         }}
       >
-        <div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#333' }}>友人</h1>
-          <p style={{ fontSize: '0.8rem', color: '#bbb' }}>{friends.length}人 登録</p>
-        </div>
+        <Link
+          href="/my"
+          style={{
+            color: '#999',
+            fontSize: '1.2rem',
+            textDecoration: 'none',
+            padding: '0 4px',
+          }}
+        >
+          ‹
+        </Link>
+        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#333', flex: 1 }}>
+          会う相手
+        </h1>
         <Link
           href="/friends/new"
           style={{
@@ -29,27 +42,35 @@ export default async function FriendsPage() {
             padding: '8px 16px',
             fontSize: '0.85rem',
             fontWeight: 700,
+            textDecoration: 'none',
           }}
         >
           ＋ 追加
         </Link>
-      </div>
+      </header>
 
       <div style={{ background: '#FFF5F8', borderRadius: 12, padding: 12, marginBottom: 20 }}>
         <p style={{ fontSize: '0.75rem', color: '#999', lineHeight: 1.6 }}>
-          試着対象の人物を登録します。複数枚の顔写真があると AI が「本人モード」で
-          試着・コーデを生成できます（Phase 5 で起動）。
+          よく会う人を登録すると、AI が**「前回その人と着た服と被らない」**コーデを提案します。
+          顔写真は<b>任意</b>（試着用、複数枚あると本人モード対応）。
         </p>
       </div>
 
+      <p style={{ fontSize: '0.8rem', color: '#bbb', marginBottom: 12 }}>
+        {friends.length}人 登録
+      </p>
+
       {friends.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <div style={{ fontSize: '3rem', marginBottom: 12 }}>👤</div>
-          <p style={{ color: '#ccc', fontSize: '0.9rem', marginBottom: 20 }}>
-            まず自分を登録しましょう
+        <div style={{ textAlign: 'center', padding: '40px 24px' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>🙂</div>
+          <p style={{ color: '#999', fontSize: '0.85rem', marginBottom: 4 }}>
+            まだ登録がありません
+          </p>
+          <p style={{ color: '#bbb', fontSize: '0.72rem', marginBottom: 20 }}>
+            予定タブで「誰と会う」を登録する時に使えます
           </p>
           <Link
-            href="/friends/new?me=1"
+            href="/friends/new"
             style={{
               display: 'inline-block',
               background: 'linear-gradient(135deg, #E8A0BF, #C4779B)',
@@ -58,9 +79,10 @@ export default async function FriendsPage() {
               padding: '12px 28px',
               fontWeight: 700,
               fontSize: '0.9rem',
+              textDecoration: 'none',
             }}
           >
-            自分を登録する
+            会う相手を追加
           </Link>
         </div>
       ) : (

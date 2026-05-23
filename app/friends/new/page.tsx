@@ -8,7 +8,6 @@ import FacePhotoPicker, {
   FacePhoto,
   FacePhotoPickerHandle,
 } from '@/components/FacePhotoPicker'
-import WheelDatePicker from '@/components/WheelDatePicker'
 import { dataUrlToBlob, saveBlob } from '@/lib/blobStore'
 import { createFriendAction } from '../actions'
 
@@ -31,7 +30,6 @@ function NewFriendForm() {
   const [height, setHeight] = useState(160)
   const [bodyType, setBodyType] = useState<BodyType>('ふつう')
   const [gender, setGender] = useState<Gender>('指定しない')
-  const [birthday, setBirthday] = useState<string>('')
   const [relationship, setRelationship] = useState<Relationship>(
     isMe ? '自分' : '友達'
   )
@@ -49,9 +47,10 @@ function NewFriendForm() {
     return firstUsable?.dataUrl || facePhotos[0]?.dataUrl || ''
   }, [facePhotos])
 
+  // 自分は写真必須 / 会う相手は名前のみで OK
   const canSave = useMemo(
-    () => facePhotos.length > 0 && name.trim().length > 0,
-    [facePhotos, name]
+    () => name.trim().length > 0 && (!isMe || facePhotos.length > 0),
+    [facePhotos, name, isMe]
   )
 
   const handleSave = async () => {
@@ -60,17 +59,16 @@ function NewFriendForm() {
     setError('')
 
     try {
-      // 1. 友人レコード作成（メタのみ・写真枚数を渡す）
+      // 1. 友人レコード作成
       const usable = facePhotos.filter((p) => p.quality.isUsable)
       const created = await createFriendAction({
         name: name.trim(),
-        height_cm: height,
-        body_type: bodyType,
-        gender,
-        birthday: birthday || undefined,
+        height_cm: isMe ? height : undefined,
+        body_type: isMe ? bodyType : undefined,
+        gender: isMe ? gender : undefined,
         relationship,
         is_me: isMe,
-        thumb_url: profilePhoto, // data URL で簡易格納（後でSupabase Storage化）
+        thumb_url: profilePhoto || undefined,
         face_photo_count: usable.length,
       })
 
@@ -90,7 +88,7 @@ function NewFriendForm() {
         }
       }
 
-      router.push('/friends')
+      router.push(isMe ? '/my' : '/friends')
     } catch (e) {
       setError(e instanceof Error ? e.message : '不明なエラー')
       setSaving(false)
@@ -116,13 +114,13 @@ function NewFriendForm() {
         }}
       >
         <button
-          onClick={() => router.push('/friends')}
+          onClick={() => router.push(isMe ? '/my' : '/friends')}
           style={{ background: 'none', color: '#999', fontSize: '0.95rem' }}
         >
           キャンセル
         </button>
         <h1 style={{ fontSize: '1rem', fontWeight: 700, color: '#333' }}>
-          {isMe ? '自分を登録' : '友達を追加'}
+          {isMe ? '自分を登録' : '会う相手を追加'}
         </h1>
         <div style={{ width: 60 }} />
       </header>
@@ -234,6 +232,9 @@ function NewFriendForm() {
           />
         </Field>
 
+        {/* 自分の場合のみ詳細フィールド */}
+        {isMe && (<>
+
         {/* Height */}
         <Field label="身長" required>
           <div style={{ background: '#fff', border: '1px solid #FFE4F0', borderRadius: 12, padding: 14 }}>
@@ -325,10 +326,7 @@ function NewFriendForm() {
           <Segmented options={GENDERS} value={gender} onChange={(v) => setGender(v as Gender)} />
         </Field>
 
-        {/* Birthday */}
-        <Field label="誕生日" optional>
-          <WheelDatePicker value={birthday} onChange={setBirthday} />
-        </Field>
+        </>)}
 
         {/* Relationship */}
         <Field label="関係性" optional>
