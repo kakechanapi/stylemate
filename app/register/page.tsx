@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ProductSearchResult, Category } from '@/types/fashion'
 import { saveClothingAction } from './actions'
+import { uploadClothingImage } from '@/lib/storage'
 
 type Tab = 'search' | 'barcode' | 'manual'
 
@@ -41,6 +42,28 @@ export default function RegisterPage() {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
 
+  // 画像アップロード関連
+  const [imageUrl, setImageUrl] = useState<string>('')
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const imageInputRef = useRef<HTMLInputElement>(null)
+
+  const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setUploadError('')
+    const result = await uploadClothingImage(file)
+    if (result.ok && result.url) {
+      setImageUrl(result.url)
+    } else {
+      setUploadError(result.error || 'アップロード失敗')
+    }
+    setUploading(false)
+    // 同じファイル再選択できるよう値リセット
+    e.target.value = ''
+  }
+
   const handleSearch = async () => {
     if (!keyword.trim()) return
     setSearching(true)
@@ -71,7 +94,8 @@ export default function RegisterPage() {
       brand: brand.trim() || undefined,
       category: category as Category,
       color: color.trim() || undefined,
-      image_url: selected?.imageUrl || undefined,
+      // アップロード優先 → 楽天検索の画像 → 無し
+      image_url: imageUrl || selected?.imageUrl || undefined,
       product_url: selected?.productUrl || undefined,
       tpo_tags: selectedTpo,
     })
@@ -87,6 +111,7 @@ export default function RegisterPage() {
       setName(''); setBrand(''); setCategory('tops'); setColor('')
       setSelectedTpo([]); setSelected(null); setSaved(false)
       setKeyword(''); setSearchResults([])
+      setImageUrl(''); setUploadError('')
       setTab('search')
       router.push('/closet')
     }, 1500)
@@ -319,6 +344,136 @@ export default function RegisterPage() {
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* ─── 画像アップロード ─── */}
+            <div>
+              <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                画像（任意）
+              </label>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImagePick}
+                style={{ display: 'none' }}
+              />
+              {imageUrl ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageUrl}
+                    alt="プレビュー"
+                    style={{
+                      width: 80,
+                      height: 80,
+                      objectFit: 'cover',
+                      borderRadius: 12,
+                      border: '2px solid #FFE4F0',
+                    }}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploading}
+                      style={{
+                        background: '#fff',
+                        border: '2px solid #E8A0BF',
+                        color: '#C4779B',
+                        padding: '6px 12px',
+                        borderRadius: 10,
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      変更
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('')}
+                      style={{
+                        background: '#fff',
+                        border: '2px solid #eee',
+                        color: '#888',
+                        padding: '6px 12px',
+                        borderRadius: 10,
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      削除
+                    </button>
+                  </div>
+                </div>
+              ) : selected?.imageUrl ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={selected.imageUrl}
+                    alt="楽天画像"
+                    style={{
+                      width: 80,
+                      height: 80,
+                      objectFit: 'cover',
+                      borderRadius: 12,
+                      border: '2px solid #FFE4F0',
+                    }}
+                  />
+                  <div>
+                    <p style={{ fontSize: '0.72rem', color: '#888', marginBottom: 4 }}>
+                      楽天の画像を使用
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploading}
+                      style={{
+                        background: '#fff',
+                        border: '2px solid #E8A0BF',
+                        color: '#C4779B',
+                        padding: '6px 12px',
+                        borderRadius: 10,
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      自分の写真に変更
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={uploading}
+                  style={{
+                    width: '100%',
+                    padding: 16,
+                    border: '2px dashed #E8A0BF',
+                    background: '#FFF5F8',
+                    color: '#C4779B',
+                    borderRadius: 12,
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    cursor: uploading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                >
+                  {uploading ? 'アップロード中…' : '📷 写真をアップロード'}
+                </button>
+              )}
+              {uploadError && (
+                <p style={{ color: '#d63384', fontSize: '0.72rem', marginTop: 6 }}>
+                  {uploadError}
+                </p>
+              )}
+            </div>
+
             <div>
               <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '6px' }}>アイテム名 *</label>
               <input

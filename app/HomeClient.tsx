@@ -193,40 +193,63 @@ export default function HomeClient({ clothes, userEmail, upcomingEvents, friendN
       )}
 
       {/* Quick actions */}
-      <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
-        <Link
-          href="/register"
-          style={{
-            flex: 1,
-            background: '#fff',
-            border: '2px solid #E8A0BF',
-            borderRadius: 16,
-            padding: 14,
-            textAlign: 'center',
-            color: '#C4779B',
-            fontWeight: 700,
-            fontSize: '0.88rem',
-            textDecoration: 'none',
-          }}
-        >
-          ＋ 服を登録
-        </Link>
-        <Link
-          href="/events/new"
-          style={{
-            flex: 1,
-            background: 'linear-gradient(135deg, #E8A0BF, #C4779B)',
-            borderRadius: 16,
-            padding: 14,
-            textAlign: 'center',
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: '0.88rem',
-            textDecoration: 'none',
-          }}
-        >
-          📅 予定を追加
-        </Link>
+      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* メイン：今日のコーデを記録（被り回避AIの学習源） */}
+        {!isEmptyCloset && (
+          <Link
+            href="/outfits/new"
+            style={{
+              background: 'linear-gradient(135deg, #E8A0BF, #C4779B)',
+              borderRadius: 16,
+              padding: 14,
+              textAlign: 'center',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '0.92rem',
+              textDecoration: 'none',
+              boxShadow: '0 4px 14px rgba(196,121,155,0.3)',
+            }}
+          >
+            ✍ 今日のコーデを記録する
+          </Link>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link
+            href="/register"
+            style={{
+              flex: 1,
+              background: '#fff',
+              border: '2px solid #E8A0BF',
+              borderRadius: 16,
+              padding: 12,
+              textAlign: 'center',
+              color: '#C4779B',
+              fontWeight: 700,
+              fontSize: '0.85rem',
+              textDecoration: 'none',
+            }}
+          >
+            ＋ 服を登録
+          </Link>
+          <Link
+            href="/events/new"
+            style={{
+              flex: 1,
+              background: '#fff',
+              border: '2px solid #E8A0BF',
+              borderRadius: 16,
+              padding: 12,
+              textAlign: 'center',
+              color: '#C4779B',
+              fontWeight: 700,
+              fontSize: '0.85rem',
+              textDecoration: 'none',
+            }}
+          >
+            📅 予定を追加
+          </Link>
+        </div>
       </div>
     </div>
   )
