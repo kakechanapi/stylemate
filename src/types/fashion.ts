@@ -29,6 +29,7 @@ export interface Outfit {
   weather?: string
   temperature?: number
   note?: string
+  met_with_friend_ids?: string[]
   created_at: string
 }
 

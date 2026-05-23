@@ -6,7 +6,7 @@ const navItems = [
   { href: '/', label: 'ホーム', icon: '🏠' },
   { href: '/closet', label: 'クローゼット', icon: '👗' },
   { href: '/friends', label: '友人', icon: '🙂' },
-  { href: '/calendar', label: 'カレンダー', icon: '📅' },
+  { href: '/events', label: '予定', icon: '📅' },
   { href: '/my', label: 'マイ', icon: '👤' },
 ]
 

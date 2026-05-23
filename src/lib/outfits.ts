@@ -28,6 +28,7 @@ export interface NewOutfit {
   weather?: string
   temperature?: number
   note?: string
+  met_with_friend_ids?: string[]
 }
 
 export async function createOutfit(input: NewOutfit): Promise<{ ok: boolean; error?: string }> {
@@ -46,6 +47,7 @@ export async function createOutfit(input: NewOutfit): Promise<{ ok: boolean; err
     weather: input.weather,
     temperature: input.temperature,
     note: input.note,
+    met_with_friend_ids: input.met_with_friend_ids || [],
   })
   if (error) {
     console.error('[lib/outfits] create error:', error.message)

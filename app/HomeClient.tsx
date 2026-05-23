@@ -5,14 +5,21 @@ import WeatherWidget from '@/components/WeatherWidget'
 import TPOSelector from '@/components/TPOSelector'
 import OutfitSuggestionCard from '@/components/OutfitSuggestionCard'
 import { ClothingItem } from '@/types/fashion'
+import type { EventItem } from '@/lib/events'
 
 interface Props {
   clothes: ClothingItem[]
   userEmail: string | null
+  upcomingEvents: EventItem[]
+  friendNames: Record<string, string>
 }
 
-export default function HomeClient({ clothes, userEmail }: Props) {
+export default function HomeClient({ clothes, userEmail, upcomingEvents, friendNames }: Props) {
   const [tpo, setTpo] = useState('casual')
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(
+    upcomingEvents[0]?.id || null
+  )
+
   const today = new Date().toLocaleDateString('ja-JP', {
     month: 'long',
     day: 'numeric',
@@ -20,6 +27,7 @@ export default function HomeClient({ clothes, userEmail }: Props) {
   })
 
   const isEmptyCloset = clothes.length === 0
+  const selectedEvent = upcomingEvents.find((e) => e.id === selectedEventId) || null
 
   return (
     <div style={{ padding: '20px 16px' }}>
@@ -61,10 +69,87 @@ export default function HomeClient({ clothes, userEmail }: Props) {
         <WeatherWidget />
       </div>
 
-      {/* TPO */}
-      <div style={{ marginBottom: 20 }}>
-        <TPOSelector selected={tpo} onChange={setTpo} />
-      </div>
+      {/* これからの予定 */}
+      {upcomingEvents.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div
+            style={{
+              fontSize: '0.7rem',
+              color: '#999',
+              fontWeight: 700,
+              letterSpacing: 1,
+              marginBottom: 8,
+              paddingLeft: 4,
+            }}
+          >
+            これからの予定
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {upcomingEvents.map((e) => {
+              const date = new Date(e.starts_at)
+              const dateStr = date.toLocaleDateString('ja-JP', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+              const friendsText = (e.friend_ids || [])
+                .map((id) => friendNames[id])
+                .filter(Boolean)
+                .join(', ')
+              const active = e.id === selectedEventId
+              return (
+                <button
+                  key={e.id}
+                  onClick={() => setSelectedEventId(active ? null : e.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    background: active ? 'linear-gradient(135deg, #FFF0F6, #FFE4F0)' : '#fff',
+                    border: `2px solid ${active ? '#E8A0BF' : '#FFE4F0'}`,
+                    borderRadius: 12,
+                    padding: '10px 14px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ fontSize: '1.2rem' }}>{active ? '✓' : '📅'}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#333' }}>
+                      {e.title}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#999', marginTop: 2 }}>
+                      {dateStr}
+                      {friendsText && <> · {friendsText}</>}
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          {selectedEvent && (
+            <p
+              style={{
+                fontSize: '0.72rem',
+                color: '#C4779B',
+                marginTop: 6,
+                paddingLeft: 4,
+                fontWeight: 600,
+              }}
+            >
+              ✨ この予定に合わせたコーデを提案します
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* TPO（予定が選ばれてなければ手動選択） */}
+      {!selectedEvent && (
+        <div style={{ marginBottom: 20 }}>
+          <TPOSelector selected={tpo} onChange={setTpo} />
+        </div>
+      )}
 
       {/* AI Outfit Suggestion or empty state */}
       {isEmptyCloset ? (
@@ -100,7 +185,11 @@ export default function HomeClient({ clothes, userEmail }: Props) {
           </Link>
         </div>
       ) : (
-        <OutfitSuggestionCard clothes={clothes} tpo={tpo} onRefresh={() => {}} />
+        <OutfitSuggestionCard
+          clothes={clothes}
+          tpo={selectedEvent?.tpo || tpo}
+          eventId={selectedEvent?.id}
+        />
       )}
 
       {/* Quick actions */}
@@ -120,10 +209,10 @@ export default function HomeClient({ clothes, userEmail }: Props) {
             textDecoration: 'none',
           }}
         >
-          ＋ 服を登録する
+          ＋ 服を登録
         </Link>
         <Link
-          href="/closet"
+          href="/events/new"
           style={{
             flex: 1,
             background: 'linear-gradient(135deg, #E8A0BF, #C4779B)',
@@ -136,7 +225,7 @@ export default function HomeClient({ clothes, userEmail }: Props) {
             textDecoration: 'none',
           }}
         >
-          クローゼット ({clothes.length})
+          📅 予定を追加
         </Link>
       </div>
     </div>

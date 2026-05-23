@@ -13,10 +13,11 @@ interface OutfitSuggestion {
 interface Props {
   clothes: ClothingItem[]
   tpo: string
+  eventId?: string | null
   onRefresh?: () => void
 }
 
-export default function OutfitSuggestionCard({ clothes, tpo }: Props) {
+export default function OutfitSuggestionCard({ clothes, tpo, eventId }: Props) {
   const [suggestion, setSuggestion] = useState<OutfitSuggestion | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -52,7 +53,7 @@ export default function OutfitSuggestionCard({ clothes, tpo }: Props) {
       const res = await fetch('/api/ai-outfit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clothes, weather: w, tpo }),
+        body: JSON.stringify({ clothes, weather: w, tpo, eventId }),
       })
       const data = await res.json()
       setSuggestion(data)
