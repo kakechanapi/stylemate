@@ -60,15 +60,14 @@ const DEMO_IMAGES = [
 ]
 
 function getDemoResults(keyword: string): RakutenProduct[] {
-  // キーワードと無関係に全 demo 画像を返す（スワイプ用に多めに）
-  // shuffle して 8件返す
+  // キーワードに関わらず全画像を shuffle して返す（楽天 API キー未設定時のフォールバック）
   const shuffled = [...DEMO_IMAGES].sort(() => Math.random() - 0.5)
   return shuffled.slice(0, 8).map((d, i) => ({
-    name: `${d.name}（${keyword}向け）`,
+    name: d.name,
     brand: d.brand,
     imageUrl: d.url,
     productUrl: '#',
     price: 1500 + i * 500,
-    itemCode: `demo-${d.name}-${i}`,
+    itemCode: `demo-${keyword}-${i}-${d.name}`,
   }))
 }

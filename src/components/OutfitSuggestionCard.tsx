@@ -174,31 +174,123 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId }: Props) {
         </p>
       )}
 
-      {/* 使うアイテム */}
-      {suggestion?.items && suggestion.items.length > 0 && (
+      {/* 使うアイテム（画像つきカード） */}
+      {suggestion?.itemIds && suggestion.itemIds.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <p style={{ fontSize: '0.8rem', color: '#999', marginBottom: 8, fontWeight: 600 }}>
             使うアイテム
           </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {suggestion.items.map((item, i) => (
-              <span
-                key={i}
-                style={{
-                  background: '#FFF0F6',
-                  color: '#C4779B',
-                  borderRadius: 20,
-                  padding: '4px 10px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                }}
-              >
-                {item}
-              </span>
-            ))}
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              overflowX: 'auto',
+              paddingBottom: 4,
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            {suggestion.itemIds.map((id, i) => {
+              const item = clothes.find((c) => c.id === id)
+              if (!item) return null
+              return (
+                <div
+                  key={id}
+                  style={{
+                    flexShrink: 0,
+                    width: 90,
+                    background: '#fff',
+                    border: '1px solid #FFE4F0',
+                    borderRadius: 10,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      aspectRatio: '1',
+                      background: '#FFF0F6',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {item.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '1.6rem' }}>👗</span>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      padding: '6px 4px',
+                      fontSize: '0.65rem',
+                      color: '#333',
+                      fontWeight: 600,
+                      textAlign: 'center',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {item.name}
+                  </div>
+                </div>
+              )
+            })}
           </div>
+          {/* AI が ID を返さなかった場合のフォールバック（名前タグ） */}
+          {suggestion.items.length > 0 && suggestion.itemIds.length === 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+              {suggestion.items.map((item, i) => (
+                <span
+                  key={i}
+                  style={{
+                    background: '#FFF0F6',
+                    color: '#C4779B',
+                    borderRadius: 20,
+                    padding: '4px 10px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
+      {/* itemIds 無し・items だけの場合 */}
+      {(!suggestion?.itemIds || suggestion.itemIds.length === 0) &&
+        suggestion?.items &&
+        suggestion.items.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: '0.8rem', color: '#999', marginBottom: 8, fontWeight: 600 }}>
+              使うアイテム
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {suggestion.items.map((item, i) => (
+                <span
+                  key={i}
+                  style={{
+                    background: '#FFF0F6',
+                    color: '#C4779B',
+                    borderRadius: 20,
+                    padding: '4px 10px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
       <button
         onClick={fetchSuggestion}

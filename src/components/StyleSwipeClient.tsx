@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useState, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { recordSwipeAction, refreshStyleProfileAction } from '@/app/style/actions'
 
@@ -9,6 +9,8 @@ interface Item {
   imageUrl: string
   productUrl: string
 }
+
+const SWIPE_THRESHOLD = 120 // 横方向ドラッグでこの値を超えたら確定
 
 export default function StyleSwipeClient({
   initialLikedCount,
@@ -25,6 +27,12 @@ export default function StyleSwipeClient({
   const [refreshing, setRefreshing] = useState(false)
   const [refreshMsg, setRefreshMsg] = useState('')
   const [, startTransition] = useTransition()
+
+  // drag 状態
+  const [dragX, setDragX] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const dragStartX = useRef<number | null>(null)
+  const [exitTo, setExitTo] = useState<'left' | 'right' | null>(null)
 
   const loadFeed = async () => {
     setLoading(true)
@@ -43,11 +51,11 @@ export default function StyleSwipeClient({
   }, [])
 
   const current = items[index]
+  const next = items[index + 1]
 
-  const handleSwipe = (liked: boolean) => {
+  const recordCurrent = (liked: boolean) => {
     if (!current) return
     const item = current
-    setIndex((i) => i + 1)
     if (liked) setLikedCount((c) => c + 1)
     startTransition(async () => {
       await recordSwipeAction({
@@ -58,6 +66,39 @@ export default function StyleSwipeClient({
         source: 'rakuten',
       })
     })
+  }
+
+  const advance = (liked: boolean) => {
+    setExitTo(liked ? 'right' : 'left')
+    recordCurrent(liked)
+    // アニメーション完了後にカード切替
+    setTimeout(() => {
+      setIndex((i) => i + 1)
+      setDragX(0)
+      setExitTo(null)
+    }, 250)
+  }
+
+  // ─── Pointer Events ───
+  const onPointerDown = (clientX: number) => {
+    if (exitTo) return
+    dragStartX.current = clientX
+    setDragging(true)
+  }
+  const onPointerMove = (clientX: number) => {
+    if (dragStartX.current === null) return
+    setDragX(clientX - dragStartX.current)
+  }
+  const onPointerUp = () => {
+    if (dragStartX.current === null) return
+    if (Math.abs(dragX) >= SWIPE_THRESHOLD) {
+      advance(dragX > 0)
+    } else {
+      // 戻す
+      setDragX(0)
+    }
+    dragStartX.current = null
+    setDragging(false)
   }
 
   const handleRefreshProfile = async () => {
@@ -80,8 +121,6 @@ export default function StyleSwipeClient({
         <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>👏</div>
         <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: 20 }}>
           このセットの判定完了！
-          <br />
-          次のセットを読み込みますか？
         </p>
         <button
           onClick={loadFeed}
@@ -142,71 +181,114 @@ export default function StyleSwipeClient({
     )
   }
 
+  // ─── 描画 ───
+  const dragRatio = Math.min(1, Math.abs(dragX) / SWIPE_THRESHOLD)
+  const rotateDeg = (dragX / SWIPE_THRESHOLD) * 15
+
+  // exit アニメーション用の transform
+  const exitTransform =
+    exitTo === 'right'
+      ? `translate(${window.innerWidth}px, -40px) rotate(20deg)`
+      : exitTo === 'left'
+        ? `translate(-${window.innerWidth}px, -40px) rotate(-20deg)`
+        : ''
+
+  const cardTransform = exitTo
+    ? exitTransform
+    : dragging || dragX !== 0
+      ? `translate(${dragX}px, 0) rotate(${rotateDeg}deg)`
+      : ''
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {/* カード */}
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 360,
-          background: '#fff',
-          borderRadius: 20,
-          overflow: 'hidden',
-          boxShadow: '0 8px 24px rgba(232,160,191,0.25)',
-          border: '1px solid #FFE4F0',
-        }}
-      >
-        <div
-          style={{
-            aspectRatio: '3/4',
-            background: '#FFF0F6',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={current.imageUrl}
-            alt={current.name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        </div>
-        <div style={{ padding: 14 }}>
-          <p
+      {/* カード群（次のカードを薄く後ろに） */}
+      <div style={{ position: 'relative', width: '100%', maxWidth: 360, height: 480, marginBottom: 20 }}>
+        {next && (
+          <Card
+            item={next}
             style={{
-              fontSize: '0.88rem',
-              fontWeight: 700,
-              color: '#333',
-              marginBottom: 4,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
+              position: 'absolute',
+              inset: 0,
+              transform: 'scale(0.95) translateY(8px)',
+              opacity: 0.7,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+        <Card
+          item={current}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            transform: cardTransform,
+            transition: dragging ? 'none' : 'transform 0.25s ease-out',
+            touchAction: 'pan-y',
+            cursor: dragging ? 'grabbing' : 'grab',
+          }}
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId)
+            onPointerDown(e.clientX)
+          }}
+          onPointerMove={(e) => onPointerMove(e.clientX)}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        />
+
+        {/* 左右のオーバーレイラベル */}
+        {dragX > 30 && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 24,
+              left: 24,
+              padding: '8px 16px',
+              border: '3px solid #C4779B',
+              color: '#C4779B',
+              borderRadius: 12,
+              fontWeight: 800,
+              fontSize: '1.2rem',
+              transform: 'rotate(-15deg)',
+              opacity: dragRatio,
+              pointerEvents: 'none',
             }}
           >
-            {current.name}
-          </p>
-          {current.brand && (
-            <p style={{ fontSize: '0.72rem', color: '#999' }}>{current.brand}</p>
-          )}
-        </div>
+            LIKE ❤
+          </div>
+        )}
+        {dragX < -30 && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 24,
+              right: 24,
+              padding: '8px 16px',
+              border: '3px solid #999',
+              color: '#999',
+              borderRadius: 12,
+              fontWeight: 800,
+              fontSize: '1.2rem',
+              transform: 'rotate(15deg)',
+              opacity: dragRatio,
+              pointerEvents: 'none',
+            }}
+          >
+            NOPE
+          </div>
+        )}
       </div>
 
-      {/* スワイプボタン */}
-      <div style={{ display: 'flex', gap: 24, marginTop: 24 }}>
+      {/* スワイプボタン（補助） */}
+      <div style={{ display: 'flex', gap: 24 }}>
         <button
-          onClick={() => handleSwipe(false)}
+          onClick={() => advance(false)}
           style={{
-            width: 64,
-            height: 64,
+            width: 56,
+            height: 56,
             borderRadius: '50%',
             background: '#fff',
             border: '3px solid #ddd',
             color: '#999',
-            fontSize: '1.6rem',
+            fontSize: '1.4rem',
             cursor: 'pointer',
             boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
           }}
@@ -215,15 +297,15 @@ export default function StyleSwipeClient({
           ✕
         </button>
         <button
-          onClick={() => handleSwipe(true)}
+          onClick={() => advance(true)}
           style={{
-            width: 64,
-            height: 64,
+            width: 56,
+            height: 56,
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #E8A0BF, #C4779B)',
             border: 'none',
             color: '#fff',
-            fontSize: '1.6rem',
+            fontSize: '1.4rem',
             cursor: 'pointer',
             boxShadow: '0 4px 14px rgba(196,121,155,0.4)',
           }}
@@ -234,8 +316,85 @@ export default function StyleSwipeClient({
       </div>
 
       <p style={{ fontSize: '0.72rem', color: '#bbb', marginTop: 16 }}>
-        {index + 1} / {items.length}
+        {index + 1} / {items.length}　·　← 左でNOPE　/　右で LIKE →
       </p>
+    </div>
+  )
+}
+
+// 単一カード描画
+function Card({
+  item,
+  style,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+}: {
+  item: Item
+  style: React.CSSProperties
+  onPointerDown?: (e: React.PointerEvent) => void
+  onPointerMove?: (e: React.PointerEvent) => void
+  onPointerUp?: () => void
+  onPointerCancel?: () => void
+}) {
+  return (
+    <div
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      style={{
+        background: '#fff',
+        borderRadius: 20,
+        overflow: 'hidden',
+        boxShadow: '0 8px 24px rgba(232,160,191,0.25)',
+        border: '1px solid #FFE4F0',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTapHighlightColor: 'transparent',
+        ...style,
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          height: 380,
+          background: '#FFF0F6',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={item.imageUrl}
+          alt={item.name}
+          draggable={false}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+        />
+      </div>
+      <div style={{ padding: 14 }}>
+        <p
+          style={{
+            fontSize: '0.88rem',
+            fontWeight: 700,
+            color: '#333',
+            marginBottom: 4,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+          }}
+        >
+          {item.name}
+        </p>
+        {item.brand && (
+          <p style={{ fontSize: '0.72rem', color: '#999' }}>{item.brand}</p>
+        )}
+      </div>
     </div>
   )
 }

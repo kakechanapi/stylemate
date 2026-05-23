@@ -137,7 +137,6 @@ export default async function MyPage() {
           設定
         </h2>
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #F5C6D8' }}>
-          <MenuLink icon="📅" label="着用カレンダー" href="/calendar" />
           <MenuRow icon="📜" label="利用規約" disabled hint="準備中" />
           <MenuRow icon="🔒" label="プライバシーポリシー" disabled hint="準備中" />
           <MenuRow icon="❓" label="ヘルプ" disabled hint="準備中" last />
@@ -164,36 +163,6 @@ export default async function MyPage() {
         </button>
       </form>
     </div>
-  )
-}
-
-function MenuLink({
-  icon,
-  label,
-  href,
-  last,
-}: {
-  icon: string
-  label: string
-  href: string
-  last?: boolean
-}) {
-  return (
-    <Link
-      href={href}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        padding: '14px 16px',
-        borderBottom: last ? 'none' : '1px solid #F5C6D8',
-        textDecoration: 'none',
-        color: 'inherit',
-      }}
-    >
-      <span style={{ fontSize: '1.1rem', marginRight: 12 }}>{icon}</span>
-      <span style={{ flex: 1, fontSize: '0.9rem', color: '#333' }}>{label}</span>
-      <span style={{ color: '#bbb', fontSize: '1rem' }}>›</span>
-    </Link>
   )
 }
 

@@ -72,6 +72,16 @@ export async function createClothing(input: NewClothing): Promise<{ ok: boolean;
   return { ok: true }
 }
 
+export async function updateClothing(
+  id: string,
+  patch: Partial<NewClothing>
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createSupabaseServerClient()
+  const { error } = await supabase.from('clothes').update(patch).eq('id', id)
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
 export async function deleteClothing(id: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createSupabaseServerClient()
   const { error } = await supabase.from('clothes').delete().eq('id', id)

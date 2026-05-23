@@ -88,6 +88,25 @@ export default function EventList({ upcoming, past, friendNames }: Props) {
               })}
             </div>
             <button
+              onClick={() => {
+                router.push(`/events/${menuFor.id}/edit`)
+                setMenuFor(null)
+              }}
+              style={{
+                width: '100%',
+                padding: 16,
+                background: 'transparent',
+                border: 'none',
+                borderTop: '1px solid #F5C6D8',
+                color: '#333',
+                fontSize: '0.95rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              編集
+            </button>
+            <button
               onClick={() => handleDelete(menuFor.id)}
               style={{
                 width: '100%',

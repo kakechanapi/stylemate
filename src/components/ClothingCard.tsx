@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { ClothingItem } from '@/types/fashion'
 import { deleteClothingAction } from '@/app/closet/actions'
 
@@ -15,10 +16,16 @@ interface Props {
 const LONG_PRESS_MS = 500
 
 export default function ClothingCard({ item }: Props) {
+  const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
   const [pending, startTransition] = useTransition()
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressed = useRef(false)
+
+  const handleEdit = () => {
+    setShowMenu(false)
+    router.push(`/closet/${item.id}/edit`)
+  }
 
   const startLongPress = () => {
     longPressed.current = false
@@ -163,12 +170,28 @@ export default function ClothingCard({ item }: Props) {
               {item.name}
             </div>
             <button
+              onClick={handleEdit}
+              style={{
+                width: '100%',
+                padding: 16,
+                background: 'transparent',
+                border: 'none',
+                color: '#333',
+                fontSize: '0.95rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              編集
+            </button>
+            <button
               onClick={handleDelete}
               style={{
                 width: '100%',
                 padding: 16,
                 background: 'transparent',
                 border: 'none',
+                borderTop: '1px solid #F5C6D8',
                 color: '#d63384',
                 fontSize: '0.95rem',
                 fontWeight: 600,

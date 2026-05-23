@@ -74,6 +74,23 @@ export async function createEvent(input: NewEvent): Promise<{
   return { ok: true, id: data.id }
 }
 
+export async function updateEvent(
+  id: string,
+  patch: Partial<NewEvent>
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createSupabaseServerClient()
+  const { error } = await supabase.from('events').update(patch).eq('id', id)
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
+export async function getEvent(id: string): Promise<EventItem | null> {
+  const supabase = await createSupabaseServerClient()
+  const { data, error } = await supabase.from('events').select('*').eq('id', id).single()
+  if (error) return null
+  return data as EventItem
+}
+
 export async function deleteEvent(id: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createSupabaseServerClient()
   const { error } = await supabase.from('events').delete().eq('id', id)
