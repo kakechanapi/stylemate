@@ -90,7 +90,7 @@ ${clothesSummary || '（まだ服が登録されていません）'}
 服が少ない場合でも、ある服を活かした提案をしてください。`
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
     const result = await model.generateContent(prompt)
     const text = result.response.text()
     const jsonMatch = text.match(/\{[\s\S]*\}/)

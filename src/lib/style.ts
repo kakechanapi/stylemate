@@ -124,7 +124,7 @@ ${dislikedSwipes.length > 0
 タグは2〜4個に絞る。`
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
     const result = await model.generateContent(prompt)
     const text = result.response.text()
     const m = text.match(/\{[\s\S]*\}/)

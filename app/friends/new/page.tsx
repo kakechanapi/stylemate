@@ -251,16 +251,46 @@ function NewFriendForm() {
               </div>
               <div style={{ fontSize: '0.7rem', color: '#bbb' }}>140 — 200cm</div>
             </div>
-            <div style={{ position: 'relative', height: 6, background: '#FFE4F0', borderRadius: 6 }}>
+            <div style={{ position: 'relative', height: 24, marginTop: 4, marginBottom: 4 }}>
+              {/* トラック */}
               <div
                 style={{
                   position: 'absolute',
                   left: 0,
-                  top: 0,
-                  height: '100%',
+                  right: 0,
+                  top: 9,
+                  height: 6,
+                  background: '#FFE4F0',
+                  borderRadius: 6,
+                }}
+              />
+              {/* 進捗 */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 9,
+                  height: 6,
                   width: `${sliderPosition}%`,
                   background: 'linear-gradient(to right, #E8A0BF, #C4779B)',
                   borderRadius: 6,
+                  pointerEvents: 'none',
+                }}
+              />
+              {/* つまみ（ハロー付きで「動かせる」と分かる） */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `calc(${sliderPosition}% - 12px)`,
+                  top: 0,
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  background: '#fff',
+                  border: '3px solid #C4779B',
+                  boxShadow: '0 2px 8px rgba(196,121,155,0.35)',
+                  pointerEvents: 'none',
+                  transition: 'left 0.05s ease-out',
                 }}
               />
               <input
@@ -276,6 +306,9 @@ function NewFriendForm() {
                   height: '100%',
                   opacity: 0,
                   cursor: 'pointer',
+                  WebkitAppearance: 'none',
+                  appearance: 'none',
+                  background: 'transparent',
                 }}
               />
             </div>
