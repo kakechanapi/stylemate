@@ -11,14 +11,22 @@ interface Props {
   outfits: Outfit[]
   clothesMap: Record<string, { name: string; image_url?: string }>
   friendNames: Record<string, string>
+  initialMonth?: string // "YYYY-MM"
 }
 
 const LONG_PRESS_MS = 500
 
-export default function CalendarHybridView({ events, outfits, clothesMap, friendNames }: Props) {
+export default function CalendarHybridView({
+  events,
+  outfits,
+  clothesMap,
+  friendNames,
+  initialMonth,
+}: Props) {
   const router = useRouter()
   const today = new Date()
-  const [currentMonth, setCurrentMonth] = useState(today)
+  const initial = initialMonth ? new Date(`${initialMonth}-01T00:00:00`) : today
+  const [currentMonth, setCurrentMonth] = useState(initial)
   const [selectedDate, setSelectedDate] = useState<string>(toDateStr(today))
   const [, startTransition] = useTransition()
 
@@ -42,8 +50,15 @@ export default function CalendarHybridView({ events, outfits, clothesMap, friend
     outfitsByDate[o.worn_at].push(o)
   })
 
-  const prevMonth = () => setCurrentMonth(new Date(year, month - 1, 1))
-  const nextMonth = () => setCurrentMonth(new Date(year, month + 1, 1))
+  const changeMonth = (delta: number) => {
+    const next = new Date(year, month + delta, 1)
+    setCurrentMonth(next)
+    const ym = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
+    // 表示中の月が変わったらサーバ側で再取得（前後1月キャッシュなので隣月ならインスタント）
+    router.push(`/events?month=${ym}`)
+  }
+  const prevMonth = () => changeMonth(-1)
+  const nextMonth = () => changeMonth(1)
 
   const dayEvents = eventsByDate[selectedDate] || []
   const dayOutfits = outfitsByDate[selectedDate] || []

@@ -1,4 +1,5 @@
 // カレンダー画面：予定 + 着用記録 を月ビューと一緒に
+// パフォーマンス：当月 ±1ヶ月の範囲だけ取得（全データ取得を避ける）
 import Link from 'next/link'
 import { listEvents } from '@/lib/events'
 import { listOutfits } from '@/lib/outfits'
@@ -6,10 +7,28 @@ import { listClothes } from '@/lib/clothes'
 import { listFriends } from '@/lib/friends'
 import CalendarHybridView from '@/components/CalendarHybridView'
 
-export default async function CalendarPage() {
+export default async function CalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string }>
+}) {
+  const { month } = await searchParams
+
+  // 表示対象月（YYYY-MM）
+  const base = month ? new Date(`${month}-01T00:00:00`) : new Date()
+  const year = base.getFullYear()
+  const m = base.getMonth()
+
+  // クエリ範囲：表示月の前後1ヶ月
+  const from = new Date(year, m - 1, 1).toISOString()
+  const toDate = new Date(year, m + 2, 0, 23, 59, 59)
+  const to = toDate.toISOString()
+  const fromYmd = `${new Date(year, m - 1, 1).getFullYear()}-${String(new Date(year, m - 1, 1).getMonth() + 1).padStart(2, '0')}-01`
+  const toYmd = `${toDate.getFullYear()}-${String(toDate.getMonth() + 1).padStart(2, '0')}-${String(toDate.getDate()).padStart(2, '0')}`
+
   const [events, outfits, clothes, friends] = await Promise.all([
-    listEvents(),
-    listOutfits(),
+    listEvents({ from, to }),
+    listOutfits({ from: fromYmd, to: toYmd }),
     listClothes(),
     listFriends(),
   ])
@@ -73,6 +92,7 @@ export default async function CalendarPage() {
         outfits={outfits}
         clothesMap={clothesMap}
         friendNames={friendNames}
+        initialMonth={`${year}-${String(m + 1).padStart(2, '0')}`}
       />
     </div>
   )

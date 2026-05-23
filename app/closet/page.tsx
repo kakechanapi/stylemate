@@ -16,8 +16,12 @@ export default async function ClosetPage({
 }) {
   const params = await searchParams
   const cat = (params.category as Category) || undefined
-  const items = await listClothes(cat ? { category: cat } : undefined)
-  const total = await (await import('@/lib/clothes')).countClothes()
+
+  // カテゴリフィルタ有無で1つのクエリにまとめる（count用に別途クエリしない）
+  // 全件取って、表示はクライアントでフィルタ → さらにレイテンシ↓
+  const allItems = await listClothes()
+  const items = cat ? allItems.filter((c) => c.category === cat) : allItems
+  const total = allItems.length
 
   return (
     <div style={{ padding: '20px 16px' }}>
