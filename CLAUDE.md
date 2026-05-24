@@ -9,16 +9,17 @@
 
 ## 📚 新しい Claude セッションで最初に読むファイル（**順番厳守**）
 
-1. **このファイル（CLAUDE.md）** ← 今読んでいる。ビジョン・現状・ロードマップ
-2. **`.secretary/CLAUDE.md`** ← ダッシュボード・秘書システムの使い方
-3. **`.secretary/projects/stylemate-phases.md`** ← Phase ごとの **最新進捗**
-4. **`MIGRATION_PLAN.md`** ← Phase の詳細手順（着手前条件・完了条件）
-5. **`MIGRATION_INVENTORY.md`** ← GiftWear から移植するもの一覧
+1. **`HANDOVER.md`** ← まず最初。30秒で全体把握できる入口 ⭐
+2. **このファイル（CLAUDE.md）** ← ビジョン・全体像
+3. **`.secretary/CLAUDE.md`** ← ダッシュボード・秘書システムの使い方
+4. **`.secretary/projects/stylemate-phases.md`** ← Phase ごとの **最新進捗**
+5. **`MIGRATION_PLAN.md`** ← Phase の詳細手順（必要に応じて）
 6. **`.secretary/todos/<今日の日付>.md`** ← 今日のTODO（あれば）
 
 これだけ読めば、開発状況・方針・次のアクションが完全に把握できる。
 
 ユーザーは時短重視なので、不必要な質問はしない。判断できるものは自動で進める。
+コード解説は聞かれた時のみ。
 
 ---
 
