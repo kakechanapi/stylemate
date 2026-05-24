@@ -1,5 +1,4 @@
 'use client'
-import { useRouter, usePathname } from 'next/navigation'
 
 const categories: { id: string; label: string; emoji: string }[] = [
   { id: 'all', label: 'すべて', emoji: '👗' },
@@ -12,15 +11,12 @@ const categories: { id: string; label: string; emoji: string }[] = [
   { id: 'dress', label: 'ワンピ', emoji: '👗' },
 ]
 
-export default function ClosetFilter({ active }: { active: string }) {
-  const router = useRouter()
-  const pathname = usePathname()
+interface Props {
+  active: string
+  onChange: (id: string) => void
+}
 
-  const switchTo = (id: string) => {
-    const url = id === 'all' ? pathname : `${pathname}?category=${id}`
-    router.push(url)
-  }
-
+export default function ClosetFilter({ active, onChange }: Props) {
   return (
     <div
       style={{
@@ -36,7 +32,7 @@ export default function ClosetFilter({ active }: { active: string }) {
         return (
           <button
             key={cat.id}
-            onClick={() => switchTo(cat.id)}
+            onClick={() => onChange(cat.id)}
             style={{
               flexShrink: 0,
               padding: '6px 12px',

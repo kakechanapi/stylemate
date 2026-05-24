@@ -216,6 +216,10 @@ export default function StyleSwipeClient({
           />
         )}
         <Card
+          // key=index でカード切替時にDOMを再生成。
+          // これがないと前カードの exit transform → 中央への戻り transition が走り
+          // 「スワイプしたカードが戻ってくる」見え方になる。
+          key={index}
           item={current}
           style={{
             position: 'absolute',
