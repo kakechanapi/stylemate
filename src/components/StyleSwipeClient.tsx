@@ -51,7 +51,6 @@ export default function StyleSwipeClient({
   }, [])
 
   const current = items[index]
-  const next = items[index + 1]
 
   const recordCurrent = (liked: boolean) => {
     if (!current) return
@@ -193,50 +192,93 @@ export default function StyleSwipeClient({
         ? `translate(-${window.innerWidth}px, -40px) rotate(-20deg)`
         : ''
 
-  const cardTransform = exitTo
-    ? exitTransform
-    : dragging || dragX !== 0
-      ? `translate(${dragX}px, 0) rotate(${rotateDeg}deg)`
-      : ''
+  // カードスタック（Tinder式の浮き上がり）
+  // - 退場中(exitTo!=null): 4枚レンダリング、depth=-1(退場), 0(新前面), 1, 2
+  // - 通常時: 3枚、depth=0(前面), 1, 2
+  // - stable key (item.imageUrl) でindex変化時もDOMを保持し、
+  //   depthに応じた transform を CSS transition で滑らかに繰り上げる
+  const isExiting = exitTo !== null
+  const visibleStartIndex = index
+  const visibleEndIndex = index + (isExiting ? 4 : 3)
+  const stack = items.slice(visibleStartIndex, visibleEndIndex)
+
+  // depth → スタイル
+  const styleForDepth = (
+    depth: number,
+    isFront: boolean,
+  ): React.CSSProperties => {
+    if (depth === -1) {
+      // 退場するカード
+      return {
+        transform: exitTransform,
+        opacity: 1,
+        zIndex: 30,
+      }
+    }
+    if (depth === 0) {
+      // 前面：drag transform を適用（前面のみ）
+      const t = isFront && !isExiting
+        ? (dragging || dragX !== 0
+          ? `translate(${dragX}px, 0) rotate(${rotateDeg}deg)`
+          : '')
+        : ''
+      return { transform: t, opacity: 1, zIndex: 20 }
+    }
+    if (depth === 1) {
+      return {
+        transform: 'scale(0.95) translateY(8px)',
+        opacity: 0.7,
+        zIndex: 10,
+      }
+    }
+    // depth === 2
+    return {
+      transform: 'scale(0.9) translateY(16px)',
+      opacity: 0.4,
+      zIndex: 5,
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {/* カード群（次のカードを薄く後ろに） */}
+      {/* カード群（スタック） */}
       <div style={{ position: 'relative', width: '100%', maxWidth: 360, height: 480, marginBottom: 20 }}>
-        {next && (
-          <Card
-            item={next}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              transform: 'scale(0.95) translateY(8px)',
-              opacity: 0.7,
-              pointerEvents: 'none',
-            }}
-          />
-        )}
-        <Card
-          // key=index でカード切替時にDOMを再生成。
-          // これがないと前カードの exit transform → 中央への戻り transition が走り
-          // 「スワイプしたカードが戻ってくる」見え方になる。
-          key={index}
-          item={current}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            transform: cardTransform,
-            transition: dragging ? 'none' : 'transform 0.25s ease-out',
-            touchAction: 'pan-y',
-            cursor: dragging ? 'grabbing' : 'grab',
-          }}
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId)
-            onPointerDown(e.clientX)
-          }}
-          onPointerMove={(e) => onPointerMove(e.clientX)}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        />
+        {stack.map((item, relIdx) => {
+          const depth = isExiting ? relIdx - 1 : relIdx
+          // 前面（depth=0 かつ非退場時のみ）が drag を受け付ける
+          const isFront = depth === 0 && !isExiting
+          const depthStyle = styleForDepth(depth, isFront)
+          return (
+            <Card
+              // stable key：index 変化時もDOMを保持して transition を滑らかに走らせる
+              key={item.productUrl || item.imageUrl}
+              item={item}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                ...depthStyle,
+                transition:
+                  dragging && isFront
+                    ? 'none'
+                    : 'transform 0.25s ease-out, opacity 0.25s ease-out',
+                touchAction: 'pan-y',
+                cursor: isFront ? (dragging ? 'grabbing' : 'grab') : 'default',
+                pointerEvents: isFront ? 'auto' : 'none',
+              }}
+              onPointerDown={
+                isFront
+                  ? (e) => {
+                      e.currentTarget.setPointerCapture(e.pointerId)
+                      onPointerDown(e.clientX)
+                    }
+                  : undefined
+              }
+              onPointerMove={isFront ? (e) => onPointerMove(e.clientX) : undefined}
+              onPointerUp={isFront ? onPointerUp : undefined}
+              onPointerCancel={isFront ? onPointerUp : undefined}
+            />
+          )
+        })}
 
         {/* 左右のオーバーレイラベル */}
         {dragX > 30 && (
