@@ -21,6 +21,12 @@ export interface SuggestionContext {
   scheduleTitle?: string
   styleTags?: string[]
   recentClothIds?: string[]
+  // 自分のプロフィール（性別・身長・体型）。提案精度を上げるために渡す。
+  me?: {
+    gender?: string // '男性' / '女性' / '指定しない'
+    height_cm?: number
+    body_type?: string // 'スリム' / 'ふつう' / 'がっしり'
+  }
 }
 
 export async function generateOutfitSuggestion(
@@ -54,6 +60,14 @@ export async function generateOutfitSuggestion(
 
   const scheduleText = context.scheduleTitle ? `\n予定：${context.scheduleTitle}` : ''
 
+  // 自分のプロフィール（性別など）
+  const me = context.me
+  const meParts: string[] = []
+  if (me?.gender && me.gender !== '指定しない') meParts.push(`性別: ${me.gender}`)
+  if (me?.height_cm) meParts.push(`身長: ${me.height_cm}cm`)
+  if (me?.body_type) meParts.push(`体型: ${me.body_type}`)
+  const meText = meParts.length > 0 ? `\nユーザー情報：${meParts.join('、')}` : ''
+
   const styleText =
     context.styleTags && context.styleTags.length > 0
       ? `\nユーザーの嗜好：${context.styleTags.join('、')}`
@@ -75,7 +89,7 @@ export async function generateOutfitSuggestion(
 
 【入力情報】
 ${weatherText}
-TPO: ${tpoLabels[context.tpo]}${scheduleText}${styleText}${recentText}
+TPO: ${tpoLabels[context.tpo]}${meText}${scheduleText}${styleText}${recentText}
 
 【ユーザーの所有服一覧】
 ${clothesSummary || '（まだ服が登録されていません）'}
@@ -91,6 +105,8 @@ ${clothesSummary || '（まだ服が登録されていません）'}
 3. 被り回避指定があれば、その服IDは絶対に使わない
 4. ユーザーの嗜好（系統）を尊重する
 5. 風速が強い時（5m/s以上）は羽織りものを優先、雨/雪なら撥水素材も提案に含める
+6. 【最重要】ユーザー情報の性別を厳守。男性ユーザーにブラウス・スカート等の女性服を提案しない／女性ユーザーにメンズ専用アイテムを押し付けない。性別「指定しない」or未指定の場合のみ中性的提案OK
+7. 体型・身長があれば、シルエット選びの参考にする（がっしり→ゆとり、スリム→タイト等）
 
 【返答形式：必ず JSON のみ、前後に余計なテキスト不要】
 {

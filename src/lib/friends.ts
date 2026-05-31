@@ -28,6 +28,29 @@ export async function getFriend(id: string): Promise<Friend | null> {
   return data as Friend
 }
 
+/**
+ * ログインユーザー自身のプロフィール（is_me=true の friends 行）を取得
+ * AI コーデ提案で性別・身長・体型を考慮するために使う
+ */
+export async function getMe(): Promise<Friend | null> {
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data, error } = await supabase
+    .from('friends')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('is_me', true)
+    .maybeSingle()
+  if (error) {
+    console.error('[lib/friends] getMe error:', error.message)
+    return null
+  }
+  return (data as Friend) || null
+}
+
 export interface NewFriend {
   name: string
   height_cm?: number

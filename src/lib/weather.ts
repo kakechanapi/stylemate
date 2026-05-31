@@ -55,7 +55,7 @@ const CLOTHING_LEVELS: {
     max: 28,
     level: 4,
     label: '過ごしやすい',
-    recommendation: '半袖シャツや薄手のブラウスが活躍。朝晩は1枚羽織りを',
+    recommendation: '半袖や薄手の長袖がちょうど良い。朝晩は1枚羽織りを',
     emoji: '👕',
   },
   {
@@ -108,13 +108,36 @@ export function computeClothingIndex(apparentTemp: number): ClothingIndex {
   }
 }
 
+// Open-Meteo の reverse geocoding（無料）で lat/lon → 市区町村名を取得
+// 失敗・タイムアウトしても天気自体は返すよう、ベストエフォート
+async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
+  try {
+    const url =
+      `https://geocoding-api.open-meteo.com/v1/reverse?` +
+      `latitude=${lat}&longitude=${lon}&language=ja&format=json&count=1`
+    const res = await fetch(url, { next: { revalidate: 3600 } })
+    if (!res.ok) return null
+    const data = await res.json()
+    const r = data.results?.[0]
+    if (!r) return null
+    // 例：name="新宿区", admin1="東京都" → "東京都 新宿区"
+    const parts = [r.admin1, r.name].filter(
+      (x: string | undefined) => x && x.length > 0 && x !== r.country
+    )
+    return parts.length > 0 ? parts.join(' ') : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * 天気を取得（Open-Meteo）。lat/lon 省略時は東京デフォルト。
+ * 位置情報があれば reverse geocoding で実際の市区町村名を取得して city にセット。
  */
 export async function fetchWeather(
   lat = 35.6895, // 東京
   lon = 139.6917,
-  cityHint = '東京'
+  cityHint?: string
 ): Promise<WeatherData | null> {
   try {
     const url =
@@ -123,12 +146,17 @@ export async function fetchWeather(
       `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m` +
       `&timezone=Asia%2FTokyo`
 
-    const res = await fetch(url, { next: { revalidate: 1800 } })
-    if (!res.ok) {
-      console.error('[weather] fetch failed:', res.status)
+    // 天気とジオコーディングを並列取得
+    const [weatherRes, geocoded] = await Promise.all([
+      fetch(url, { next: { revalidate: 1800 } }),
+      cityHint ? Promise.resolve(null) : reverseGeocode(lat, lon),
+    ])
+
+    if (!weatherRes.ok) {
+      console.error('[weather] fetch failed:', weatherRes.status)
       return null
     }
-    const data = await res.json()
+    const data = await weatherRes.json()
     const c = data.current
     if (!c) return null
 
@@ -144,7 +172,7 @@ export async function fetchWeather(
       humidity: Math.round(c.relative_humidity_2m),
       windSpeed:
         c.wind_speed_10m != null ? Math.round(c.wind_speed_10m * 10) / 10 : undefined,
-      city: cityHint,
+      city: cityHint || geocoded || '東京',
       clothingIndex,
     }
   } catch (e) {

@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { generateOutfitSuggestion } from '@/lib/gemini'
 import { recentClothesWithFriends } from '@/lib/events'
 import { getStyleProfile } from '@/lib/style'
+import { getMe } from '@/lib/friends'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
@@ -49,12 +50,24 @@ export async function POST(request: Request) {
     }
   }
 
+  // 自分のプロフィール（性別・身長・体型）→ 提案精度UP
+  // 性別マッチしない服を提案しないように Gemini に伝える
+  const me = await getMe()
+  const meContext = me
+    ? {
+        gender: me.gender,
+        height_cm: me.height_cm,
+        body_type: me.body_type,
+      }
+    : undefined
+
   const result = await generateOutfitSuggestion(body.clothes || [], {
     weather: body.weather || null,
     tpo,
     scheduleTitle,
     styleTags,
     recentClothIds,
+    me: meContext,
   })
   return NextResponse.json({ ...result, recentClothIds, scheduleTitle, styleTags })
 }

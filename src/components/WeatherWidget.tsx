@@ -76,6 +76,23 @@ export default function WeatherWidget() {
         color: '#fff',
       }}
     >
+      {/* 場所表示（天気の妥当性を視認） */}
+      {weather.city && (
+        <div
+          style={{
+            fontSize: '0.72rem',
+            opacity: 0.9,
+            fontWeight: 600,
+            marginBottom: 8,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          📍 {weather.city}
+        </div>
+      )}
+
       {/* 上段：天気 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
