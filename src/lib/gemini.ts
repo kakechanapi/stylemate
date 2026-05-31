@@ -36,9 +36,21 @@ export async function generateOutfitSuggestion(
     formal: 'フォーマル',
   }
 
-  const weatherText = context.weather
-    ? `今日の天気：${context.weather.description}、気温${context.weather.temperature}℃、湿度${context.weather.humidity}%`
-    : '天気情報なし'
+  const w = context.weather
+  let weatherText: string
+  if (w) {
+    const apparent =
+      w.apparentTemperature !== undefined && w.apparentTemperature !== w.temperature
+        ? `（体感${w.apparentTemperature}℃）`
+        : ''
+    const wind = w.windSpeed !== undefined ? `、風速${w.windSpeed}m/s` : ''
+    const ci = w.clothingIndex
+      ? `\n服装指数：${w.clothingIndex.score}/100（${w.clothingIndex.label}）→ 目安：${w.clothingIndex.recommendation}`
+      : ''
+    weatherText = `今日の天気：${w.description}、気温${w.temperature}℃${apparent}、湿度${w.humidity}%${wind}${ci}`
+  } else {
+    weatherText = '天気情報なし'
+  }
 
   const scheduleText = context.scheduleTitle ? `\n予定：${context.scheduleTitle}` : ''
 
@@ -69,14 +81,16 @@ TPO: ${tpoLabels[context.tpo]}${scheduleText}${styleText}${recentText}
 ${clothesSummary || '（まだ服が登録されていません）'}
 
 【提案の指針】
-1. 気温に応じて適切なレイヤー構成を選ぶ
-   - 25℃以上: トップス1枚 + ボトムス、または涼しい素材
-   - 18〜24℃: トップス + 軽い羽織りを検討
-   - 10〜17℃: トップス + アウター必須
-   - 9℃以下: 中にヒートテック等のインナー + アウター
+1. 体感温度と服装指数（提示があれば）に応じてレイヤー構成を選ぶ
+   - 服装指数 80以上 / 28℃以上: トップス1枚 + ボトムス、涼しい素材
+   - 服装指数 60〜80 / 22〜28℃: 半袖中心、朝晩用の薄手羽織りも検討
+   - 服装指数 40〜60 / 16〜22℃: 長袖 + 薄手カーディガン or ジャケット
+   - 服装指数 20〜40 / 8〜16℃: 厚手アウター、中にヒートテック検討
+   - 服装指数 20以下 / 8℃以下: ダウン・マフラー等しっかり防寒
 2. TPO・予定に合わせる（デート→きれいめ、ピクニック→カジュアル等）
 3. 被り回避指定があれば、その服IDは絶対に使わない
 4. ユーザーの嗜好（系統）を尊重する
+5. 風速が強い時（5m/s以上）は羽織りものを優先、雨/雪なら撥水素材も提案に含める
 
 【返答形式：必ず JSON のみ、前後に余計なテキスト不要】
 {

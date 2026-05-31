@@ -39,6 +39,24 @@ export interface WeatherData {
   icon: string
   humidity: number
   city: string
+  apparentTemperature?: number // 体感温度（風＋湿度を反映）
+  windSpeed?: number // 風速 (m/s)
+  clothingIndex?: ClothingIndex
+}
+
+/**
+ * 服装指数（tenki.jp / ウェザーニュース風）
+ * - score: 0-100（高いほど薄着でOK）
+ * - level: 1=極寒 ～ 5=猛暑
+ * - label: 「肌寒い」等のひと言
+ * - recommendation: 「長袖シャツが心地よい」等の具体的提案
+ */
+export interface ClothingIndex {
+  score: number
+  level: 1 | 2 | 3 | 4 | 5
+  label: string
+  recommendation: string
+  emoji: string
 }
 
 export interface ProductSearchResult {

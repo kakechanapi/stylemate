@@ -2,6 +2,8 @@
 // API キー不要・無料無制限（非商用利用）
 // https://open-meteo.com/en/docs
 
+import type { ClothingIndex, WeatherData } from '@/types/fashion'
+
 // WMO Weather interpretation codes
 const WMO_DESCRIPTIONS: Record<number, { desc: string; icon: string }> = {
   0: { desc: '快晴', icon: '☀️' },
@@ -30,12 +32,80 @@ const WMO_DESCRIPTIONS: Record<number, { desc: string; icon: string }> = {
   99: { desc: '激しい雷雨', icon: '⛈' },
 }
 
-export interface WeatherInfo {
-  temperature: number
-  description: string
-  icon: string
-  humidity: number
-  city: string
+// 体感温度 → 服装指数（5段階）
+// tenki.jp / ウェザーニュース等の一般的仕様を参考にしたマッピング
+const CLOTHING_LEVELS: {
+  min: number
+  max: number
+  level: 1 | 2 | 3 | 4 | 5
+  label: string
+  recommendation: string
+  emoji: string
+}[] = [
+  {
+    min: 28,
+    max: Infinity,
+    level: 5,
+    label: '暑い',
+    recommendation: 'Tシャツ・ノースリーブで快適。水分補給も忘れずに',
+    emoji: '🌴',
+  },
+  {
+    min: 22,
+    max: 28,
+    level: 4,
+    label: '過ごしやすい',
+    recommendation: '半袖シャツや薄手のブラウスが活躍。朝晩は1枚羽織りを',
+    emoji: '👕',
+  },
+  {
+    min: 16,
+    max: 22,
+    level: 3,
+    label: '肌寒い',
+    recommendation: '長袖シャツ＋カーディガンや薄手ジャケットがちょうど良い',
+    emoji: '👔',
+  },
+  {
+    min: 8,
+    max: 16,
+    level: 2,
+    label: '寒い',
+    recommendation: '厚手のコートやジャケット、中にヒートテックも検討',
+    emoji: '🧥',
+  },
+  {
+    min: -Infinity,
+    max: 8,
+    level: 1,
+    label: 'かなり寒い',
+    recommendation: 'ダウンコート・マフラー・手袋でしっかり防寒を',
+    emoji: '☃️',
+  },
+]
+
+/**
+ * 体感温度から服装指数を計算
+ * - score: 0-100（高いほど薄着でOK）
+ * - level: 1=極寒 ～ 5=猛暑
+ */
+export function computeClothingIndex(apparentTemp: number): ClothingIndex {
+  // -5℃ → 0, 35℃ → 100 にクランプ
+  const score = Math.round(
+    Math.max(0, Math.min(100, ((apparentTemp - -5) / (35 - -5)) * 100))
+  )
+
+  const level =
+    CLOTHING_LEVELS.find((l) => apparentTemp >= l.min && apparentTemp < l.max) ||
+    CLOTHING_LEVELS[CLOTHING_LEVELS.length - 1]
+
+  return {
+    score,
+    level: level.level,
+    label: level.label,
+    recommendation: level.recommendation,
+    emoji: level.emoji,
+  }
 }
 
 /**
@@ -45,12 +115,12 @@ export async function fetchWeather(
   lat = 35.6895, // 東京
   lon = 139.6917,
   cityHint = '東京'
-): Promise<WeatherInfo | null> {
+): Promise<WeatherData | null> {
   try {
     const url =
       `https://api.open-meteo.com/v1/forecast?` +
       `latitude=${lat}&longitude=${lon}` +
-      `&current=temperature_2m,relative_humidity_2m,weather_code` +
+      `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m` +
       `&timezone=Asia%2FTokyo`
 
     const res = await fetch(url, { next: { revalidate: 1800 } })
@@ -63,12 +133,19 @@ export async function fetchWeather(
     if (!c) return null
 
     const wmo = WMO_DESCRIPTIONS[c.weather_code] || { desc: '不明', icon: '🌤' }
+    const apparentTemperature = c.apparent_temperature ?? c.temperature_2m
+    const clothingIndex = computeClothingIndex(apparentTemperature)
+
     return {
       temperature: Math.round(c.temperature_2m),
+      apparentTemperature: Math.round(apparentTemperature),
       description: wmo.desc,
       icon: wmo.icon,
       humidity: Math.round(c.relative_humidity_2m),
+      windSpeed:
+        c.wind_speed_10m != null ? Math.round(c.wind_speed_10m * 10) / 10 : undefined,
       city: cityHint,
+      clothingIndex,
     }
   } catch (e) {
     console.error('[weather] error:', e)
