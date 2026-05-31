@@ -7,11 +7,20 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 function LoginInner() {
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect') || '/'
+  const urlError = searchParams.get('error')
+
+  // URLパラメータから来たエラーをユーザー向け文言に変換
+  const urlErrorMessage =
+    urlError === 'auth_failed'
+      ? 'ログイン処理が失敗しました。リンクが期限切れの可能性があります。もう一度メールを送信してください。'
+      : urlError
+        ? `エラー: ${urlError}`
+        : ''
 
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(urlErrorMessage)
   const [googleLoading, setGoogleLoading] = useState(false)
 
   const handleGoogleLogin = async () => {

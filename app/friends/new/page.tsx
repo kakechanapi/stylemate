@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef, Suspense } from 'react'
+import { useState, useMemo, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Camera } from 'lucide-react'
 import type { BodyType, Gender, Relationship } from '@/types/fashion'
@@ -26,7 +26,9 @@ function NewFriendForm() {
   const searchParams = useSearchParams()
   const isMe = searchParams.get('me') === '1'
 
-  const [name, setName] = useState('')
+  // 初期値だけ '自分' を入れる。後はユーザーが自由に編集できる
+  // （以前 useEffect で name 依存にしていたため、空にした瞬間に戻ってしまうバグがあった）
+  const [name, setName] = useState(isMe ? '自分' : '')
   const [height, setHeight] = useState(160)
   const [bodyType, setBodyType] = useState<BodyType>('ふつう')
   const [gender, setGender] = useState<Gender>('指定しない')
@@ -38,19 +40,16 @@ function NewFriendForm() {
   const [error, setError] = useState('')
   const pickerRef = useRef<FacePhotoPickerHandle>(null)
 
-  useEffect(() => {
-    if (isMe && !name) setName('自分')
-  }, [isMe, name])
-
   const profilePhoto = useMemo(() => {
     const firstUsable = facePhotos.find((p) => p.quality.isUsable)
     return firstUsable?.dataUrl || facePhotos[0]?.dataUrl || ''
   }, [facePhotos])
 
-  // 自分は写真必須 / 会う相手は名前のみで OK
+  // 保存条件: 名前のみ必須。写真は本人モード(Phase 5)で必要だが
+  // 登録時は任意 → 後から追加できる。VoCフェーズの障壁を下げるため。
   const canSave = useMemo(
-    () => name.trim().length > 0 && (!isMe || facePhotos.length > 0),
-    [facePhotos, name, isMe]
+    () => name.trim().length > 0,
+    [name]
   )
 
   const handleSave = async () => {
@@ -386,6 +385,33 @@ function NewFriendForm() {
         >
           {saving ? '保存中…' : '追加する'}
         </button>
+        {!canSave && (
+          <p
+            style={{
+              textAlign: 'center',
+              color: '#999',
+              fontSize: '0.72rem',
+              marginTop: 8,
+            }}
+          >
+            名前を入力してください
+          </p>
+        )}
+        {isMe && canSave && facePhotos.length === 0 && (
+          <p
+            style={{
+              textAlign: 'center',
+              color: '#999',
+              fontSize: '0.72rem',
+              marginTop: 8,
+              lineHeight: 1.5,
+            }}
+          >
+            ※ 本人モード（自分そっくり試着）を使うには
+            <br />
+            後で写真の追加が必要です
+          </p>
+        )}
       </div>
     </div>
   )
