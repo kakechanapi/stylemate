@@ -120,9 +120,7 @@ ${clothesSummary || '（まだ服が登録されていません）'}
 服が少ない場合でも、ある服を活かした提案をしてください。`
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
-    const result = await model.generateContent(prompt)
-    const text = result.response.text()
+    const text = await callGeminiWithRetry(prompt)
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
@@ -135,7 +133,7 @@ ${clothesSummary || '（まだ服が登録されていません）'}
       }
     }
   } catch (e) {
-    console.error('[lib/gemini] error:', e)
+    console.error('[lib/gemini] all retries + fallback failed:', e)
   }
 
   return {
@@ -146,5 +144,56 @@ ${clothesSummary || '（まだ服が登録されていません）'}
     reason: '',
     items: [],
     itemIds: [],
+  }
+}
+
+/**
+ * Gemini 呼び出しを「リトライ + フォールバックモデル」でラップ
+ * - 503 / 429 / 5xx は 1s → 2s → 4s でバックオフして最大3回再試行
+ * - プライマリ全滅したら別モデル (フォールバック) で同様に再試行
+ * - それでもダメなら最後のエラーを throw
+ */
+const PRIMARY_MODEL = 'gemini-flash-latest'
+const FALLBACK_MODEL = 'gemini-2.0-flash' // 安定運用のためのフォールバック
+const MAX_RETRIES = 3
+
+async function tryGeminiModel(modelName: string, prompt: string): Promise<string> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName })
+      const result = await model.generateContent(prompt)
+      return result.response.text()
+    } catch (e) {
+      lastError = e
+      // status 取り出し（GoogleGenerativeAI Error は status プロパティを持つ）
+      const status = (e as { status?: number })?.status
+      const isRetryable =
+        status === undefined || // ネットワーク等
+        status === 429 ||
+        status === 503 ||
+        (status >= 500 && status < 600)
+      if (!isRetryable || attempt === MAX_RETRIES - 1) {
+        throw e
+      }
+      const waitMs = Math.min(4000, 1000 * Math.pow(2, attempt)) // 1s → 2s → 4s
+      console.warn(
+        `[gemini] ${modelName} ${status ?? 'network'}, retrying in ${waitMs}ms (${attempt + 1}/${MAX_RETRIES})`
+      )
+      await new Promise((r) => setTimeout(r, waitMs))
+    }
+  }
+  throw lastError
+}
+
+async function callGeminiWithRetry(prompt: string): Promise<string> {
+  try {
+    return await tryGeminiModel(PRIMARY_MODEL, prompt)
+  } catch (primaryErr) {
+    console.warn(
+      `[gemini] primary ${PRIMARY_MODEL} exhausted, falling back to ${FALLBACK_MODEL}:`,
+      primaryErr
+    )
+    return await tryGeminiModel(FALLBACK_MODEL, prompt)
   }
 }
