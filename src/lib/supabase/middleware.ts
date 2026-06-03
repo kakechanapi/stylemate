@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   '/auth/verify',
   '/terms',
   '/privacy',
+  '/status', // 開発状況ダッシュボード（友達共有用）
 ]
 
 export async function updateSession(request: NextRequest) {
