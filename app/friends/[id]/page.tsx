@@ -1,7 +1,8 @@
-// 友人詳細：プロフィール + 本人モード起動ボタン（Phase 5で実装）
+// 友人詳細：プロフィール + 本人モード起動ボタン（Phase 5）
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getFriend } from '@/lib/friends'
+import LoraTrainingFlow from '@/components/LoraTrainingFlow'
 
 export default async function FriendDetailPage({
   params,
@@ -118,7 +119,7 @@ export default async function FriendDetailPage({
           👗 服を試着させる
         </Link>
 
-        {/* 本人モード状態 */}
+        {/* 本人モード状態 + 起動UI */}
         <div
           style={{
             background: '#fff',
@@ -128,31 +129,20 @@ export default async function FriendDetailPage({
             marginBottom: 16,
           }}
         >
-          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#333', marginBottom: 10 }}>
-            本人モード
-          </h3>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-            <span style={{ color: '#666' }}>登録枚数</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: 6 }}>
+            <span style={{ color: '#666' }}>写真登録枚数</span>
             <span style={{ color: '#333', fontWeight: 700 }}>{friend.face_photo_count}枚</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginTop: 6 }}>
-            <span style={{ color: '#666' }}>状態</span>
-            <span style={{ color: '#333', fontWeight: 700 }}>
-              {friend.lora_status === 'ready'
-                ? '✓ 本人モード起動済'
-                : friend.lora_status === 'training'
-                  ? '訓練中…'
-                  : friend.lora_status === 'pending'
-                    ? '訓練待ち（Phase 5 で起動）'
-                    : '未起動'}
-            </span>
-          </div>
-          {friend.lora_status === 'pending' && (
-            <p style={{ fontSize: '0.7rem', color: '#999', marginTop: 10, lineHeight: 1.6 }}>
-              ※ 本人モードの訓練機能は Phase 5 で実装予定。実装後、ここから起動できるようになります。
-            </p>
-          )}
         </div>
+
+        {/* Phase 5: LoRA 本人モードの起動・進捗・完了状態 */}
+        <LoraTrainingFlow
+          friendId={friend.id}
+          friendName={friend.name}
+          photoCount={friend.face_photo_count}
+          initialStatus={friend.lora_status}
+          initialTrainingId={friend.lora_training_id}
+        />
       </div>
     </div>
   )
