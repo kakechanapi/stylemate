@@ -32,6 +32,15 @@ const seasonOptions = [
   { id: 'winter', label: '❄️ 冬' },
 ]
 
+// ソースIDをユーザー向けの表示名に
+function sourceLabel(id: string): string {
+  if (id === 'rakuten') return '楽天'
+  if (id === 'yahoo') return 'Yahoo!ショッピング'
+  if (id === 'google') return 'Google'
+  if (id === 'demo') return 'デモ'
+  return id
+}
+
 // 自動入力された項目に付けるバッジ
 function AutoBadge() {
   return (
@@ -59,6 +68,8 @@ export default function RegisterPage() {
   const [keyword, setKeyword] = useState('')
   const [searchResults, setSearchResults] = useState<ProductSearchResult[]>([])
   const [searching, setSearching] = useState(false)
+  const [searchSources, setSearchSources] = useState<string[]>([])
+  const [isDemoOnly, setIsDemoOnly] = useState(false)
   const [selected, setSelected] = useState<ProductSearchResult | null>(null)
 
   // Manual form
@@ -141,8 +152,13 @@ export default function RegisterPage() {
       const res = await fetch(`/api/products/search?q=${encodeURIComponent(keyword)}`)
       const data = await res.json()
       setSearchResults(data)
+      const sourcesHeader = res.headers.get('X-Search-Sources') || ''
+      setSearchSources(sourcesHeader.split(',').filter(Boolean))
+      setIsDemoOnly(res.headers.get('X-Search-Demo-Only') === '1')
     } catch {
       setSearchResults([])
+      setSearchSources([])
+      setIsDemoOnly(false)
     } finally {
       setSearching(false)
     }
@@ -274,8 +290,35 @@ export default function RegisterPage() {
 
           {searchResults.length > 0 && (
             <div>
-              <p style={{ fontSize: '0.8rem', color: '#999', marginBottom: '10px' }}>
-                {searchResults.length}件見つかりました
+              {/* デモのみの時：目立つ警告バナー */}
+              {isDemoOnly && (
+                <div
+                  style={{
+                    background: '#FFF3CD',
+                    border: '2px solid #FFE08A',
+                    borderRadius: 12,
+                    padding: 12,
+                    marginBottom: 12,
+                    fontSize: '0.78rem',
+                    color: '#856404',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  ⚠️ <strong>これはダミー商品です</strong>
+                  <br />
+                  楽天・Yahoo!ショッピングAPI が未連携のため、開発用のサンプル画像を表示しています。
+                  画像・ブランド・商品名は実在の商品とは無関係です。
+                  <br />
+                  → 手動入力タブで実際の商品情報を登録できます。
+                </div>
+              )}
+              <p style={{ fontSize: '0.8rem', color: '#999', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>{searchResults.length}件見つかりました</span>
+                {searchSources.length > 0 && (
+                  <span style={{ fontSize: '0.66rem', color: '#bbb' }}>
+                    （{searchSources.map(sourceLabel).join('・')}）
+                  </span>
+                )}
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {searchResults.map((product, i) => (
@@ -306,6 +349,21 @@ export default function RegisterPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#333', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {product.name}
+                        {product.source === 'demo' && (
+                          <span
+                            style={{
+                              marginLeft: 6,
+                              fontSize: '0.6rem',
+                              padding: '1px 6px',
+                              borderRadius: 4,
+                              background: '#FFE08A',
+                              color: '#856404',
+                              fontWeight: 800,
+                            }}
+                          >
+                            ダミー
+                          </span>
+                        )}
                       </p>
                       <p style={{ fontSize: '0.75rem', color: '#999', marginBottom: '6px' }}>{product.brand}</p>
                       {product.price && (
@@ -322,9 +380,41 @@ export default function RegisterPage() {
           )}
 
           {keyword && !searching && searchResults.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '32px', color: '#ccc' }}>
-              <p>検索結果がありません</p>
-              <p style={{ fontSize: '0.8rem', marginTop: '8px' }}>手動入力で登録できます</p>
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '24px 16px',
+                background: '#FFF8FB',
+                borderRadius: 12,
+                border: '1px dashed #FFE4F0',
+                color: '#888',
+                lineHeight: 1.6,
+              }}
+            >
+              <p style={{ fontSize: '0.9rem', marginBottom: 8, color: '#666' }}>
+                🛍 商品検索は準備中です
+              </p>
+              <p style={{ fontSize: '0.78rem', marginBottom: 12 }}>
+                楽天 / Yahoo!ショッピング API の連携が完了するまで、
+                <br />
+                検索結果は表示できません。
+              </p>
+              <button
+                type="button"
+                onClick={() => setTab('manual')}
+                style={{
+                  background: 'linear-gradient(135deg, #E8A0BF, #C4779B)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 20,
+                  padding: '8px 20px',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                }}
+              >
+                手動入力で登録する →
+              </button>
             </div>
           )}
 

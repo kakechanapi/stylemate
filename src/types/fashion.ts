@@ -66,6 +66,8 @@ export interface ProductSearchResult {
   productUrl: string
   price?: number
   itemCode?: string
+  // どのソースから来たか（マルチソース時の表示や信頼度判定用）
+  source?: 'rakuten' | 'yahoo' | 'google' | 'demo'
 }
 
 // ─── 友人（試着対象の人物） ───

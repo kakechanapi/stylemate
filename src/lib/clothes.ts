@@ -84,6 +84,35 @@ export async function updateClothing(
 
 export async function deleteClothing(id: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'not authenticated' }
+
+  // 1. 着用記録 outfits.cloth_ids から該当 UUID を除去（整合性保持）
+  //    Postgres の配列型は FK 制約が貼れないため、アプリ側で処理する。
+  //    削除する服を含む全 outfits を取得 → cloth_ids を絞り込んで update
+  //    フィルタ後 0件になったコーデは「服がない記録」になるため削除する。
+  const { data: relatedOutfits } = await supabase
+    .from('outfits')
+    .select('id, cloth_ids')
+    .eq('user_id', user.id)
+    .contains('cloth_ids', [id])
+
+  if (relatedOutfits && relatedOutfits.length > 0) {
+    await Promise.all(
+      relatedOutfits.map(async (o) => {
+        const filtered = ((o.cloth_ids as string[]) || []).filter((c) => c !== id)
+        if (filtered.length === 0) {
+          await supabase.from('outfits').delete().eq('id', o.id)
+        } else {
+          await supabase.from('outfits').update({ cloth_ids: filtered }).eq('id', o.id)
+        }
+      })
+    )
+  }
+
+  // 2. 服本体を削除（tryons.clothing_id は schema で ON DELETE CASCADE 済）
   const { error } = await supabase.from('clothes').delete().eq('id', id)
   if (error) {
     console.error('[lib/clothes] delete error:', error.message)

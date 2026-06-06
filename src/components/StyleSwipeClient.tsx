@@ -114,7 +114,51 @@ export default function StyleSwipeClient({
     }
   }
 
-  // フィード終わり
+  // フィードがそもそも空（API未連携 or 取得失敗）
+  if (!loading && items.length === 0) {
+    return (
+      <div
+        style={{
+          textAlign: 'center',
+          padding: 28,
+          background: '#FFF8FB',
+          border: '1px dashed #FFE4F0',
+          borderRadius: 16,
+          color: '#666',
+          lineHeight: 1.7,
+        }}
+      >
+        <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>🛍</div>
+        <p style={{ color: '#333', fontSize: '0.95rem', fontWeight: 700, marginBottom: 8 }}>
+          嗜好スワイプは準備中です
+        </p>
+        <p style={{ fontSize: '0.8rem', marginBottom: 16, color: '#888' }}>
+          楽天 / Yahoo!ショッピング API が未連携のため、
+          <br />
+          スワイプ用の画像を取得できません。
+          <br />
+          API 連携後に自動的に利用可能になります。
+        </p>
+        <button
+          onClick={loadFeed}
+          style={{
+            background: '#fff',
+            color: '#C4779B',
+            border: '2px solid #E8A0BF',
+            borderRadius: 20,
+            padding: '8px 20px',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+          }}
+        >
+          再試行
+        </button>
+      </div>
+    )
+  }
+
+  // フィード終わり（一通り判定済み）
   if (!loading && index >= items.length) {
     return (
       <div style={{ textAlign: 'center', padding: 24 }}>
