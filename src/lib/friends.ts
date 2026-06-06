@@ -61,6 +61,7 @@ export interface NewFriend {
   is_me?: boolean
   thumb_url?: string
   face_photo_count?: number
+  note?: string
 }
 
 export async function createFriend(input: NewFriend): Promise<{
@@ -88,6 +89,7 @@ export async function createFriend(input: NewFriend): Promise<{
       thumb_url: input.thumb_url,
       face_photo_count: input.face_photo_count || 0,
       lora_status: (input.face_photo_count || 0) >= 5 ? 'pending' : 'none',
+      note: input.note,
     })
     .select('id')
     .single()
@@ -97,6 +99,49 @@ export async function createFriend(input: NewFriend): Promise<{
     return { ok: false, error: error.message }
   }
   return { ok: true, id: data.id }
+}
+
+// 友達情報の更新（部分更新OK）
+export interface UpdateFriendInput {
+  name?: string
+  gender?: Gender
+  birthday?: string | null // null で削除
+  relationship?: Relationship
+  thumb_url?: string | null
+  note?: string | null
+  // 自分のみ
+  height_cm?: number | null
+  body_type?: BodyType
+}
+
+export async function updateFriend(
+  id: string,
+  input: UpdateFriendInput
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'not authenticated' }
+
+  // undefined のキーは送らない（部分更新）
+  const patch: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(input)) {
+    if (v !== undefined) patch[k] = v
+  }
+  if (Object.keys(patch).length === 0) return { ok: true }
+
+  const { error } = await supabase
+    .from('friends')
+    .update(patch)
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error('[lib/friends] update error:', error.message)
+    return { ok: false, error: error.message }
+  }
+  return { ok: true }
 }
 
 export async function deleteFriend(id: string): Promise<{ ok: boolean; error?: string }> {

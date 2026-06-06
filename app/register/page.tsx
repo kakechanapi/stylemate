@@ -1,9 +1,10 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ProductSearchResult, Category } from '@/types/fashion'
 import { saveClothingAction } from './actions'
 import { uploadClothingImage } from '@/lib/storage'
+import { classifyClothing } from '@/lib/clothes-classifier'
 
 type Tab = 'search' | 'barcode' | 'manual'
 
@@ -24,6 +25,34 @@ const tpoLabels: Record<string, string> = {
   party: 'パーティー', sport: 'アウトドア', formal: 'フォーマル',
 }
 
+const seasonOptions = [
+  { id: 'spring', label: '🌸 春' },
+  { id: 'summer', label: '☀️ 夏' },
+  { id: 'autumn', label: '🍁 秋' },
+  { id: 'winter', label: '❄️ 冬' },
+]
+
+// 自動入力された項目に付けるバッジ
+function AutoBadge() {
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        marginLeft: 8,
+        padding: '2px 8px',
+        borderRadius: 10,
+        background: 'linear-gradient(135deg, #BAD7E9, #E8A0BF)',
+        color: '#fff',
+        fontSize: '0.65rem',
+        fontWeight: 700,
+        letterSpacing: 0.5,
+      }}
+    >
+      ✨ 自動
+    </span>
+  )
+}
+
 export default function RegisterPage() {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('search')
@@ -38,9 +67,50 @@ export default function RegisterPage() {
   const [category, setCategory] = useState('tops')
   const [color, setColor] = useState('')
   const [selectedTpo, setSelectedTpo] = useState<string[]>([])
+  const [seasonTags, setSeasonTags] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
+
+  // ユーザーが手動で触ったかどうか（true なら自動上書きしない）
+  const [touched, setTouched] = useState<{
+    category?: boolean
+    color?: boolean
+    tpo?: boolean
+    season?: boolean
+  }>({})
+  // 「自動入力された項目」のバッジ表示用
+  const [autoFilled, setAutoFilled] = useState<{
+    category?: boolean
+    color?: boolean
+    tpo?: boolean
+    season?: boolean
+  }>({})
+
+  // 商品名・ブランドが変わるたびに自動判定 → ユーザー未操作の項目だけ上書き
+  useEffect(() => {
+    if (!name.trim()) return
+    const result = classifyClothing({ name, brand })
+    const newAuto: typeof autoFilled = {}
+    if (result.category && !touched.category) {
+      setCategory(result.category)
+      newAuto.category = true
+    }
+    if (result.color && !touched.color) {
+      setColor(result.color)
+      newAuto.color = true
+    }
+    if (result.tpoTags.length > 0 && !touched.tpo) {
+      setSelectedTpo(result.tpoTags)
+      newAuto.tpo = true
+    }
+    if (result.seasonTags.length > 0 && !touched.season) {
+      setSeasonTags(result.seasonTags)
+      newAuto.season = true
+    }
+    setAutoFilled(newAuto)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, brand])
 
   // 画像アップロード関連
   const [imageUrl, setImageUrl] = useState<string>('')
@@ -98,6 +168,7 @@ export default function RegisterPage() {
       image_url: imageUrl || selected?.imageUrl || undefined,
       product_url: selected?.productUrl || undefined,
       tpo_tags: selectedTpo,
+      season_tags: seasonTags,
     })
     if (!result.ok) {
       setSaveError(result.error || '保存に失敗しました')
@@ -109,16 +180,25 @@ export default function RegisterPage() {
     // 2秒後にリセット & クローゼットへ遷移
     setTimeout(() => {
       setName(''); setBrand(''); setCategory('tops'); setColor('')
-      setSelectedTpo([]); setSelected(null); setSaved(false)
+      setSelectedTpo([]); setSeasonTags([]); setSelected(null); setSaved(false)
       setKeyword(''); setSearchResults([])
       setImageUrl(''); setUploadError('')
+      setTouched({}); setAutoFilled({})
       setTab('search')
       router.push('/closet')
     }, 1500)
   }
 
   const toggleTpo = (t: string) => {
+    setTouched(prev => ({ ...prev, tpo: true }))
+    setAutoFilled(prev => ({ ...prev, tpo: false }))
     setSelectedTpo(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
+  }
+
+  const toggleSeason = (s: string) => {
+    setTouched(prev => ({ ...prev, season: true }))
+    setAutoFilled(prev => ({ ...prev, season: false }))
+    setSeasonTags(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
   }
 
   return (
@@ -495,12 +575,19 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '8px' }}>カテゴリ *</label>
+              <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
+                カテゴリ *
+                {autoFilled.category && <AutoBadge />}
+              </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                 {categories.map(cat => (
                   <button
                     key={cat.id}
-                    onClick={() => setCategory(cat.id)}
+                    onClick={() => {
+                      setTouched(prev => ({ ...prev, category: true }))
+                      setAutoFilled(prev => ({ ...prev, category: false }))
+                      setCategory(cat.id)
+                    }}
                     style={{
                       padding: '8px 4px',
                       borderRadius: '10px',
@@ -522,17 +609,27 @@ export default function RegisterPage() {
               </div>
             </div>
             <div>
-              <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '6px' }}>カラー</label>
+              <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                カラー
+                {autoFilled.color && <AutoBadge />}
+              </label>
               <input
                 type="text"
                 value={color}
-                onChange={e => setColor(e.target.value)}
+                onChange={e => {
+                  setTouched(prev => ({ ...prev, color: true }))
+                  setAutoFilled(prev => ({ ...prev, color: false }))
+                  setColor(e.target.value)
+                }}
                 placeholder="例：ホワイト、ネイビー"
                 style={{ width: '100%', border: '2px solid #FFE4F0', borderRadius: '12px', padding: '12px', fontSize: '0.9rem', outline: 'none', color: '#333' }}
               />
             </div>
             <div>
-              <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '8px' }}>TPOタグ（複数選択可）</label>
+              <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
+                TPOタグ（複数選択可）
+                {autoFilled.tpo && <AutoBadge />}
+              </label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {tpoOptions.map(t => (
                   <button
@@ -549,6 +646,31 @@ export default function RegisterPage() {
                     }}
                   >
                     {tpoLabels[t]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
+                シーズン（複数選択可）
+                {autoFilled.season && <AutoBadge />}
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {seasonOptions.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => toggleSeason(s.id)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '20px',
+                      border: `2px solid ${seasonTags.includes(s.id) ? '#E8A0BF' : '#eee'}`,
+                      background: seasonTags.includes(s.id) ? '#FFF0F6' : '#fff',
+                      color: seasonTags.includes(s.id) ? '#C4779B' : '#888',
+                      fontSize: '0.78rem',
+                      fontWeight: seasonTags.includes(s.id) ? 700 : 400,
+                    }}
+                  >
+                    {s.label}
                   </button>
                 ))}
               </div>

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import type { ClothingItem } from '@/types/fashion'
 import type { EventItem } from '@/lib/events'
 import { createOutfitAction } from '@/app/outfits/actions'
+import QuickAddFriendField from './QuickAddFriendField'
 
 const categoryEmoji: Record<string, string> = {
   tops: '👕', bottoms: '👖', outerwear: '🧥', shoes: '👟',
@@ -25,8 +26,14 @@ interface Props {
   todayEvents: EventItem[]
 }
 
-export default function NewOutfitForm({ clothes, friends, todayEvents }: Props) {
+export default function NewOutfitForm({ clothes, friends: initialFriends, todayEvents }: Props) {
   const router = useRouter()
+  const [friends, setFriends] = useState(initialFriends)
+
+  const handleFriendAdded = (f: { id: string; name: string }) => {
+    setFriends((prev) => [...prev, f])
+    setMetWithFriendIds((prev) => [...prev, f.id])
+  }
 
   const todayStr = useMemo(() => {
     const d = new Date()
@@ -260,34 +267,40 @@ export default function NewOutfitForm({ clothes, friends, todayEvents }: Props) 
 
       <Field label="誰と会った？" optional>
         {friends.length === 0 ? (
-          <p style={{ fontSize: '0.78rem', color: '#bbb' }}>
-            友人未登録（任意なので飛ばしてOK）
-          </p>
+          <>
+            <p style={{ fontSize: '0.78rem', color: '#bbb', marginBottom: 4 }}>
+              まだ友達が登録されていません。下から追加するか、空欄でも保存OKです。
+            </p>
+            <QuickAddFriendField onAdded={handleFriendAdded} />
+          </>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {friends.map((f) => {
-              const active = metWithFriendIds.includes(f.id)
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => toggleFriend(f.id)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 20,
-                    border: `2px solid ${active ? '#E8A0BF' : '#FFE4F0'}`,
-                    background: active ? '#FFF0F6' : '#fff',
-                    color: active ? '#C4779B' : '#888',
-                    fontSize: '0.82rem',
-                    fontWeight: active ? 700 : 500,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {active ? '✓ ' : ''}
-                  {f.name}
-                </button>
-              )
-            })}
-          </div>
+          <>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {friends.map((f) => {
+                const active = metWithFriendIds.includes(f.id)
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => toggleFriend(f.id)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 20,
+                      border: `2px solid ${active ? '#E8A0BF' : '#FFE4F0'}`,
+                      background: active ? '#FFF0F6' : '#fff',
+                      color: active ? '#C4779B' : '#888',
+                      fontSize: '0.82rem',
+                      fontWeight: active ? 700 : 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {active ? '✓ ' : ''}
+                    {f.name}
+                  </button>
+                )
+              })}
+            </div>
+            <QuickAddFriendField onAdded={handleFriendAdded} compact />
+          </>
         )}
         <p style={{ fontSize: '0.7rem', color: '#999', marginTop: 4 }}>
           記録すると AI が次回「同じ人と被らない」コーデを提案します

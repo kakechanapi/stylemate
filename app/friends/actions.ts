@@ -1,12 +1,28 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createFriend, deleteFriend, type NewFriend } from '@/lib/friends'
+import {
+  createFriend,
+  deleteFriend,
+  updateFriend,
+  type NewFriend,
+  type UpdateFriendInput,
+} from '@/lib/friends'
 
 export async function createFriendAction(input: NewFriend) {
   const result = await createFriend(input)
   if (result.ok) {
     revalidatePath('/friends')
+    revalidatePath('/')
+  }
+  return result
+}
+
+export async function updateFriendAction(id: string, input: UpdateFriendInput) {
+  const result = await updateFriend(id, input)
+  if (result.ok) {
+    revalidatePath('/friends')
+    revalidatePath(`/friends/${id}`)
     revalidatePath('/')
   }
   return result

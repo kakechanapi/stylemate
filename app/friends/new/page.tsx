@@ -12,7 +12,7 @@ import { dataUrlToBlob, saveBlob } from '@/lib/blobStore'
 import { createFriendAction } from '../actions'
 
 const BODY_TYPES: BodyType[] = ['スリム', 'ふつう', 'がっしり']
-const GENDERS: Gender[] = ['男性', '女性', '指定しない']
+const GENDERS: Gender[] = ['女性', '男性']
 const RELATIONSHIPS: Relationship[] = [
   '友達',
   '家族',
@@ -31,10 +31,12 @@ function NewFriendForm() {
   const [name, setName] = useState(isMe ? '自分' : '')
   const [height, setHeight] = useState(160)
   const [bodyType, setBodyType] = useState<BodyType>('ふつう')
-  const [gender, setGender] = useState<Gender>('指定しない')
+  const [gender, setGender] = useState<Gender>('女性')
+  const [birthday, setBirthday] = useState('')
   const [relationship, setRelationship] = useState<Relationship>(
     isMe ? '自分' : '友達'
   )
+  const [note, setNote] = useState('')
   const [facePhotos, setFacePhotos] = useState<FacePhoto[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -59,16 +61,20 @@ function NewFriendForm() {
 
     try {
       // 1. 友人レコード作成
+      // 友達は身長・体型を持たない（本人モード/試着を友達に使わない方針）。
+      // 性別・誕生日・関係性は友達でも保持。
       const usable = facePhotos.filter((p) => p.quality.isUsable)
       const created = await createFriendAction({
         name: name.trim(),
         height_cm: isMe ? height : undefined,
         body_type: isMe ? bodyType : undefined,
-        gender: isMe ? gender : undefined,
+        gender,
+        birthday: birthday || undefined,
         relationship,
         is_me: isMe,
         thumb_url: profilePhoto || undefined,
         face_photo_count: usable.length,
+        note: note.trim() || undefined,
       })
 
       if (!created.ok || !created.id) {
@@ -231,7 +237,7 @@ function NewFriendForm() {
           />
         </Field>
 
-        {/* 自分の場合のみ詳細フィールド */}
+        {/* 自分の場合のみ：身長・体型（AIコーデ提案の精度UP用） */}
         {isMe && (<>
 
         {/* Height */}
@@ -320,12 +326,40 @@ function NewFriendForm() {
           <Segmented options={BODY_TYPES} value={bodyType} onChange={(v) => setBodyType(v as BodyType)} />
         </Field>
 
-        {/* Gender */}
-        <Field label="性別" required>
+        </>)}
+
+        {/* Gender（友達でも自分でも入れる） */}
+        <Field label="性別" optional={!isMe} required={isMe}>
           <Segmented options={GENDERS} value={gender} onChange={(v) => setGender(v as Gender)} />
         </Field>
 
-        </>)}
+        {/* Birthday（友達でも自分でも入れる、任意。フィールド全体タップでカレンダー） */}
+        <Field label="誕生日" optional>
+          <input
+            type="date"
+            value={birthday}
+            onChange={(e) => setBirthday(e.target.value)}
+            onClick={(e) => {
+              const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void }
+              el.showPicker?.()
+            }}
+            onFocus={(e) => {
+              const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void }
+              el.showPicker?.()
+            }}
+            style={{
+              width: '100%',
+              padding: '12px 14px',
+              border: '2px solid #FFE4F0',
+              borderRadius: 12,
+              fontSize: '0.95rem',
+              boxSizing: 'border-box',
+              background: '#fff',
+              color: '#333',
+              cursor: 'pointer',
+            }}
+          />
+        </Field>
 
         {/* Relationship */}
         <Field label="関係性" optional>
@@ -347,6 +381,35 @@ function NewFriendForm() {
               </option>
             ))}
           </select>
+        </Field>
+
+        {/* メモ（自由記述） */}
+        <Field label="メモ" optional>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={
+              isMe
+                ? '好きな系統や避けたいスタイルなど、自由にお書きください'
+                : '職業や特徴など、自由にお書きください'
+            }
+            rows={4}
+            style={{
+              width: '100%',
+              padding: '12px 14px',
+              border: '2px solid #FFE4F0',
+              borderRadius: 12,
+              fontSize: '0.9rem',
+              boxSizing: 'border-box',
+              resize: 'vertical',
+              fontFamily: 'inherit',
+              color: '#333',
+              background: '#fff',
+            }}
+          />
+          <p style={{ fontSize: '0.66rem', color: '#999', marginTop: 4, lineHeight: 1.5 }}>
+            ※ あなた自身のメモ用です。AI提案の参考にも将来使えるよう保存します。
+          </p>
         </Field>
 
         {error && (
@@ -410,6 +473,19 @@ function NewFriendForm() {
             ※ 本人モード（自分そっくり試着）を使うには
             <br />
             後で写真の追加が必要です
+          </p>
+        )}
+        {!isMe && canSave && facePhotos.length === 0 && (
+          <p
+            style={{
+              textAlign: 'center',
+              color: '#999',
+              fontSize: '0.72rem',
+              marginTop: 8,
+              lineHeight: 1.5,
+            }}
+          >
+            ※ 写真は後から追加できます
           </p>
         )}
       </div>

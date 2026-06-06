@@ -67,6 +67,8 @@ export async function POST(request: Request) {
     scheduleTitle,
     styleTags,
     recentClothIds,
+    fixedItemIds: Array.isArray(body.fixedItemIds) ? body.fixedItemIds : undefined,
+    excludedItemIds: Array.isArray(body.excludedItemIds) ? body.excludedItemIds : undefined,
     me: meContext,
   })
   return NextResponse.json({ ...result, recentClothIds, scheduleTitle, styleTags })

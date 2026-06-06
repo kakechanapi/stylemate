@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ClothingItem, Outfit } from '@/types/fashion'
 import { updateOutfitAction, deleteOutfitAction } from '@/app/outfits/actions'
+import QuickAddFriendField from './QuickAddFriendField'
 
 const categoryEmoji: Record<string, string> = {
   tops: '👕', bottoms: '👖', outerwear: '🧥', shoes: '👟',
@@ -24,14 +25,20 @@ interface Props {
   friends: { id: string; name: string }[]
 }
 
-export default function EditOutfitForm({ outfit, clothes, friends }: Props) {
+export default function EditOutfitForm({ outfit, clothes, friends: initialFriends }: Props) {
   const router = useRouter()
 
+  const [friends, setFriends] = useState(initialFriends)
   const [wornAt, setWornAt] = useState(outfit.worn_at)
   const [selectedClothIds, setSelectedClothIds] = useState<string[]>(outfit.cloth_ids || [])
   const [tpo, setTpo] = useState(outfit.tpo || 'casual')
   const [metWithFriendIds, setMetWithFriendIds] = useState<string[]>(outfit.met_with_friend_ids || [])
   const [note, setNote] = useState(outfit.note || '')
+
+  const handleFriendAdded = (f: { id: string; name: string }) => {
+    setFriends((prev) => [...prev, f])
+    setMetWithFriendIds((prev) => [...prev, f.id]) // 追加と同時に選択
+  }
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
@@ -207,32 +214,40 @@ export default function EditOutfitForm({ outfit, clothes, friends }: Props) {
 
       <Field label="誰と会った？">
         {friends.length === 0 ? (
-          <p style={{ fontSize: '0.78rem', color: '#bbb' }}>友人未登録</p>
+          <>
+            <p style={{ fontSize: '0.78rem', color: '#bbb', marginBottom: 4 }}>
+              まだ友達が登録されていません。下から追加できます。
+            </p>
+            <QuickAddFriendField onAdded={handleFriendAdded} />
+          </>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {friends.map((f) => {
-              const active = metWithFriendIds.includes(f.id)
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => toggleFriend(f.id)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 20,
-                    border: `2px solid ${active ? '#E8A0BF' : '#FFE4F0'}`,
-                    background: active ? '#FFF0F6' : '#fff',
-                    color: active ? '#C4779B' : '#888',
-                    fontSize: '0.82rem',
-                    fontWeight: active ? 700 : 500,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {active ? '✓ ' : ''}
-                  {f.name}
-                </button>
-              )
-            })}
-          </div>
+          <>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {friends.map((f) => {
+                const active = metWithFriendIds.includes(f.id)
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => toggleFriend(f.id)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 20,
+                      border: `2px solid ${active ? '#E8A0BF' : '#FFE4F0'}`,
+                      background: active ? '#FFF0F6' : '#fff',
+                      color: active ? '#C4779B' : '#888',
+                      fontSize: '0.82rem',
+                      fontWeight: active ? 700 : 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {active ? '✓ ' : ''}
+                    {f.name}
+                  </button>
+                )
+              })}
+            </div>
+            <QuickAddFriendField onAdded={handleFriendAdded} compact />
+          </>
         )}
       </Field>
 

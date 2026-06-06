@@ -7,7 +7,7 @@ export const metadata = {
   description: 'AI ファッションコーデ × 本人試着アプリの開発進捗ダッシュボード',
 }
 
-type Status = 'done' | 'partial' | 'todo'
+type Status = 'done' | 'partial' | 'todo' | 'in-progress'
 
 interface Item {
   label: string
@@ -23,7 +23,15 @@ interface Section {
 }
 
 // ─── 表示内容（編集ポイント） ───
-const LAST_UPDATED = '2026-06-01'
+const LAST_UPDATED = '2026-06-06'
+
+// 直近の "今やってること / 次やること" を一目で
+const NOW_DOING = {
+  title: 'Phase 5: LoRA 本人モード（実装中）',
+  subtitle: 'ユーザー自身で LoRA 訓練を走らせて動作確認するフェーズ',
+  current: '5-4 自分1人で訓練を走らせて動作確認',
+  next: '5-5 訓練済 LoRA × IDM-VTON の2段階パイプを実装',
+}
 
 const sections: Section[] = [
   {
@@ -90,12 +98,28 @@ const sections: Section[] = [
   {
     title: 'AI 試着（IDM-VTON）',
     emoji: '👗',
-    percent: 80,
+    percent: 85,
     items: [
       { label: '友人 + 服を選んで試着', status: 'done' },
       { label: '結果保存', status: 'done', note: 'Supabase Storage' },
-      { label: '本人モード（LoRA）', status: 'todo', note: 'Phase 5。コアバリュー' },
+      { label: '本人モード（LoRA）', status: 'in-progress', note: 'Phase 5 実装中。下の詳細参照' },
       { label: '360° VR', status: 'todo', note: 'Phase 9' },
+    ],
+  },
+  {
+    title: 'Phase 5: LoRA 本人モード（自分のみ）',
+    emoji: '🧬',
+    percent: 55,
+    items: [
+      { label: '5-1 DB migration（0006_lora_training）', status: 'done' },
+      { label: '5-2 訓練API /api/lora-train', status: 'done', note: 'POST=開始 / GET=ポーリング' },
+      { label: '5-3 訓練UI LoraTrainingFlow', status: 'done', note: '自分プロフィールに移行予定' },
+      { label: '5-3.5 手動セットアップ', status: 'done', note: 'Supabase / Replicate destination' },
+      { label: '5-4 自分1人で訓練を走らせる', status: 'in-progress', note: '実行中 or 直前' },
+      { label: '5-5 LoRA × IDM-VTON 2段階パイプ', status: 'todo', note: '次のタスク' },
+      { label: '5-6 試着UIに「本人モード」トグル', status: 'todo' },
+      { label: '5-7 試着10-20回で本人そっくり度評価', status: 'todo' },
+      { label: '友達向けLoRA / 試着は提供しない', status: 'done', note: 'スコープ確定（2026-06-06）' },
     ],
   },
   {
@@ -225,6 +249,77 @@ export default function StatusPage() {
             <br />
             次の山：Phase 5（LoRA本人モード）
           </p>
+        </div>
+
+        {/* 今やってること / 次やること */}
+        <div
+          style={{
+            background: '#fff',
+            border: '2px solid #E8A0BF',
+            borderRadius: 16,
+            padding: 18,
+            marginBottom: 20,
+            boxShadow: '0 2px 8px rgba(232,160,191,0.15)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 800,
+              color: '#C4779B',
+              letterSpacing: 2,
+              marginBottom: 8,
+            }}
+          >
+            🎯 いま注力中
+          </div>
+          <div
+            style={{
+              fontSize: '1rem',
+              fontWeight: 700,
+              color: '#333',
+              marginBottom: 4,
+            }}
+          >
+            {NOW_DOING.title}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: 14 }}>
+            {NOW_DOING.subtitle}
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <div
+              style={{
+                background: '#FFF8FB',
+                borderRadius: 10,
+                padding: '10px 12px',
+                borderLeft: '3px solid #E8A0BF',
+              }}
+            >
+              <div style={{ fontSize: '0.68rem', color: '#C4779B', fontWeight: 700, marginBottom: 2 }}>
+                🔄 今やってること
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#333' }}>{NOW_DOING.current}</div>
+            </div>
+            <div
+              style={{
+                background: '#F5F8FF',
+                borderRadius: 10,
+                padding: '10px 12px',
+                borderLeft: '3px solid #6B8FE8',
+              }}
+            >
+              <div style={{ fontSize: '0.68rem', color: '#4A6FD6', fontWeight: 700, marginBottom: 2 }}>
+                ⏭ 次やること
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#333' }}>{NOW_DOING.next}</div>
+            </div>
+          </div>
         </div>
 
         {/* セクション一覧 */}
@@ -373,8 +468,8 @@ function SectionCard({ section }: { section: Section }) {
             <div style={{ flex: 1 }}>
               <span
                 style={{
-                  textDecoration: item.status === 'done' ? 'none' : 'none',
                   color: item.status === 'todo' ? '#888' : '#333',
+                  fontWeight: item.status === 'in-progress' ? 700 : 400,
                 }}
               >
                 {item.label}
@@ -394,6 +489,7 @@ function SectionCard({ section }: { section: Section }) {
 
 function statusEmoji(status: Status): string {
   if (status === 'done') return '✅'
+  if (status === 'in-progress') return '🔄'
   if (status === 'partial') return '🟡'
   return '⚪️'
 }

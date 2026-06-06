@@ -13,3 +13,9 @@ out/
 # 個人ダッシュボード（リポが Public のため除外。Private化後はコミットして OK）
 .secretary/
 .vercel
+
+# Claude Code 設定（ローカルのみ）
+.claude/
+
+# TypeScript インクリメンタルビルドキャッシュ
+tsconfig.tsbuildinfo

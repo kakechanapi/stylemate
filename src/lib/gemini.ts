@@ -21,6 +21,10 @@ export interface SuggestionContext {
   scheduleTitle?: string
   styleTags?: string[]
   recentClothIds?: string[]
+  // 「固定」されたアイテム（必ず使う・他のアイテムはこれに合わせる）
+  fixedItemIds?: string[]
+  // 「却下」されたアイテム（絶対に使わない）
+  excludedItemIds?: string[]
   // 自分のプロフィール（性別・身長・体型）。提案精度を上げるために渡す。
   me?: {
     gender?: string // '男性' / '女性' / '指定しない'
@@ -78,6 +82,16 @@ export async function generateOutfitSuggestion(
       ? `\n直近着用した服ID（被り回避：これらは避ける）：${context.recentClothIds.join(', ')}`
       : ''
 
+  const fixedText =
+    context.fixedItemIds && context.fixedItemIds.length > 0
+      ? `\n【必ず使う服ID】これらは絶対に使い、これに合うアイテムを組み合わせること：${context.fixedItemIds.join(', ')}`
+      : ''
+
+  const excludedText =
+    context.excludedItemIds && context.excludedItemIds.length > 0
+      ? `\n【絶対に使わない服ID】ユーザーが却下：${context.excludedItemIds.join(', ')}`
+      : ''
+
   const clothesSummary = clothes
     .map(
       (c) =>
@@ -89,7 +103,7 @@ export async function generateOutfitSuggestion(
 
 【入力情報】
 ${weatherText}
-TPO: ${tpoLabels[context.tpo]}${meText}${scheduleText}${styleText}${recentText}
+TPO: ${tpoLabels[context.tpo]}${meText}${scheduleText}${styleText}${recentText}${fixedText}${excludedText}
 
 【ユーザーの所有服一覧】
 ${clothesSummary || '（まだ服が登録されていません）'}

@@ -90,5 +90,6 @@ export interface Friend {
   lora_url?: string
   lora_training_id?: string // 訓練中の Replicate training id
   lora_trained_at?: string
+  note?: string // 自由記述メモ
   created_at: string
 }

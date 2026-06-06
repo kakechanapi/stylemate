@@ -4,7 +4,7 @@ import Link from 'next/link'
 import WeatherWidget from '@/components/WeatherWidget'
 import TPOSelector from '@/components/TPOSelector'
 import OutfitSuggestionCard from '@/components/OutfitSuggestionCard'
-import { ClothingItem } from '@/types/fashion'
+import { ClothingItem, Outfit } from '@/types/fashion'
 import type { EventItem } from '@/lib/events'
 
 interface Props {
@@ -12,9 +12,10 @@ interface Props {
   userEmail: string | null
   upcomingEvents: EventItem[]
   friendNames: Record<string, string>
+  todayOutfit: Outfit | null
 }
 
-export default function HomeClient({ clothes, userEmail, upcomingEvents, friendNames }: Props) {
+export default function HomeClient({ clothes, userEmail, upcomingEvents, friendNames, todayOutfit }: Props) {
   const [tpo, setTpo] = useState('casual')
   const [selectedEventId, setSelectedEventId] = useState<string | null>(
     upcomingEvents[0]?.id || null
@@ -189,6 +190,7 @@ export default function HomeClient({ clothes, userEmail, upcomingEvents, friendN
           clothes={clothes}
           tpo={selectedEvent?.tpo || tpo}
           eventId={selectedEvent?.id}
+          todayOutfit={todayOutfit}
         />
       )}
 
