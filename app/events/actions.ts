@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createEvent, deleteEvent, updateEvent, type NewEvent } from '@/lib/events'
+import { normalizeActionResult } from '@/lib/action-helpers'
 
 export async function createEventAction(input: NewEvent) {
   const result = await createEvent(input)
@@ -10,7 +11,7 @@ export async function createEventAction(input: NewEvent) {
     revalidatePath('/calendar')
     revalidatePath('/')
   }
-  return result
+  return normalizeActionResult(result, { fallbackMessage: '予定の作成に失敗しました' })
 }
 
 export async function updateEventAction(id: string, patch: Partial<NewEvent>) {
@@ -20,7 +21,7 @@ export async function updateEventAction(id: string, patch: Partial<NewEvent>) {
     revalidatePath('/calendar')
     revalidatePath('/')
   }
-  return result
+  return normalizeActionResult(result, { fallbackMessage: '予定の更新に失敗しました' })
 }
 
 export async function deleteEventAction(id: string) {
@@ -30,5 +31,5 @@ export async function deleteEventAction(id: string) {
     revalidatePath('/calendar')
     revalidatePath('/')
   }
-  return result
+  return normalizeActionResult(result, { fallbackMessage: '予定の削除に失敗しました' })
 }

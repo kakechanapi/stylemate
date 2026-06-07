@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createEventAction } from '@/app/events/actions'
+import { handleActionResult } from './SessionExpiredHandler'
 
 const TPO_OPTIONS = [
   { value: 'casual', label: 'カジュアル' },
@@ -54,17 +55,19 @@ export default function NewEventForm({
     // 日付＋時刻 → ISO
     const starts = new Date(`${date}T${time}:00`).toISOString()
 
-    const result = await createEventAction({
-      title: title.trim(),
-      starts_at: starts,
-      tpo,
-      friend_ids: friendIds,
-      location: location.trim() || undefined,
-      note: note.trim() || undefined,
-    })
+    const result = handleActionResult(
+      await createEventAction({
+        title: title.trim(),
+        starts_at: starts,
+        tpo,
+        friend_ids: friendIds,
+        location: location.trim() || undefined,
+        note: note.trim() || undefined,
+      })
+    )
 
     if (!result.ok) {
-      setError(result.error || '保存に失敗しました')
+      setError(result.userMessage || result.error || '保存に失敗しました')
       setSaving(false)
       return
     }

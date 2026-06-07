@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createOutfit, deleteOutfit, updateOutfit, type NewOutfit } from '@/lib/outfits'
+import { normalizeActionResult } from '@/lib/action-helpers'
 
 export async function createOutfitAction(input: NewOutfit) {
   const result = await createOutfit(input)
@@ -11,7 +12,7 @@ export async function createOutfitAction(input: NewOutfit) {
     revalidatePath('/')
     revalidatePath('/outfits')
   }
-  return result
+  return normalizeActionResult(result, { fallbackMessage: '着用記録の保存に失敗しました' })
 }
 
 export async function updateOutfitAction(id: string, patch: Partial<NewOutfit>) {
@@ -22,7 +23,7 @@ export async function updateOutfitAction(id: string, patch: Partial<NewOutfit>) 
     revalidatePath('/')
     revalidatePath('/outfits')
   }
-  return result
+  return normalizeActionResult(result, { fallbackMessage: '着用記録の更新に失敗しました' })
 }
 
 export async function deleteOutfitAction(id: string) {
@@ -33,5 +34,5 @@ export async function deleteOutfitAction(id: string) {
     revalidatePath('/')
     revalidatePath('/outfits')
   }
-  return result
+  return normalizeActionResult(result, { fallbackMessage: '着用記録の削除に失敗しました' })
 }

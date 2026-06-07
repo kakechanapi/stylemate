@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ClothingItem, Outfit } from '@/types/fashion'
 import { updateOutfitAction, deleteOutfitAction } from '@/app/outfits/actions'
+import { handleActionResult } from './SessionExpiredHandler'
 import QuickAddFriendField from './QuickAddFriendField'
 
 const categoryEmoji: Record<string, string> = {
@@ -54,15 +55,17 @@ export default function EditOutfitForm({ outfit, clothes, friends: initialFriend
     if (!canSave || saving) return
     setSaving(true)
     setError('')
-    const result = await updateOutfitAction(outfit.id, {
-      cloth_ids: selectedClothIds,
-      tpo,
-      worn_at: wornAt,
-      met_with_friend_ids: metWithFriendIds,
-      note: note.trim() || undefined,
-    })
+    const result = handleActionResult(
+      await updateOutfitAction(outfit.id, {
+        cloth_ids: selectedClothIds,
+        tpo,
+        worn_at: wornAt,
+        met_with_friend_ids: metWithFriendIds,
+        note: note.trim() || undefined,
+      })
+    )
     if (!result.ok) {
-      setError(result.error || '保存に失敗しました')
+      setError(result.userMessage || result.error || '保存に失敗しました')
       setSaving(false)
       return
     }

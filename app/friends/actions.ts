@@ -8,6 +8,7 @@ import {
   type NewFriend,
   type UpdateFriendInput,
 } from '@/lib/friends'
+import { normalizeActionResult } from '@/lib/action-helpers'
 
 export async function createFriendAction(input: NewFriend) {
   const result = await createFriend(input)
@@ -15,7 +16,7 @@ export async function createFriendAction(input: NewFriend) {
     revalidatePath('/friends')
     revalidatePath('/')
   }
-  return result
+  return normalizeActionResult(result, { fallbackMessage: '友達の登録に失敗しました' })
 }
 
 export async function updateFriendAction(id: string, input: UpdateFriendInput) {
@@ -25,7 +26,7 @@ export async function updateFriendAction(id: string, input: UpdateFriendInput) {
     revalidatePath(`/friends/${id}`)
     revalidatePath('/')
   }
-  return result
+  return normalizeActionResult(result, { fallbackMessage: '友達の更新に失敗しました' })
 }
 
 export async function deleteFriendAction(id: string) {
@@ -33,5 +34,5 @@ export async function deleteFriendAction(id: string) {
   if (result.ok) {
     revalidatePath('/friends')
   }
-  return result
+  return normalizeActionResult(result, { fallbackMessage: '友達の削除に失敗しました' })
 }

@@ -3,6 +3,7 @@
 import { createFriend } from '@/lib/friends'
 import type { Gender, Relationship } from '@/types/fashion'
 import { revalidatePath } from 'next/cache'
+import { normalizeActionResult } from '@/lib/action-helpers'
 
 // 着用記録の編集画面・新規作成画面から、その場で友達を追加するためのサーバーアクション。
 // 友達は身長・体型は不要（試着・本人モードを使わないため）。
@@ -18,6 +19,8 @@ export async function quickAddFriendAction(input: {
   id?: string
   name?: string
   error?: string
+  code?: string
+  userMessage?: string
 }> {
   const trimmed = input.name.trim()
   if (!trimmed) return { ok: false, error: '名前を入力してください' }
@@ -30,7 +33,15 @@ export async function quickAddFriendAction(input: {
     relationship: input.relationship,
     note: input.note?.trim() || undefined,
   })
-  if (!result.ok) return { ok: false, error: result.error }
+  if (!result.ok) {
+    const normalized = normalizeActionResult(result, { fallbackMessage: '友達の登録に失敗しました' })
+    return {
+      ok: false,
+      error: normalized.error,
+      code: normalized.code,
+      userMessage: normalized.userMessage,
+    }
+  }
 
   revalidatePath('/friends')
   revalidatePath('/outfits/new')

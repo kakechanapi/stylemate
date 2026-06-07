@@ -5,6 +5,7 @@ import { ProductSearchResult, Category } from '@/types/fashion'
 import { saveClothingAction } from './actions'
 import { uploadClothingImage } from '@/lib/storage'
 import { classifyClothing } from '@/lib/clothes-classifier'
+import { handleActionResult } from '@/components/SessionExpiredHandler'
 
 type Tab = 'search' | 'barcode' | 'manual'
 
@@ -175,19 +176,21 @@ export default function RegisterPage() {
     if (!name.trim()) return
     setSaving(true)
     setSaveError('')
-    const result = await saveClothingAction({
-      name: name.trim(),
-      brand: brand.trim() || undefined,
-      category: category as Category,
-      color: color.trim() || undefined,
-      // アップロード優先 → 楽天検索の画像 → 無し
-      image_url: imageUrl || selected?.imageUrl || undefined,
-      product_url: selected?.productUrl || undefined,
-      tpo_tags: selectedTpo,
-      season_tags: seasonTags,
-    })
+    const result = handleActionResult(
+      await saveClothingAction({
+        name: name.trim(),
+        brand: brand.trim() || undefined,
+        category: category as Category,
+        color: color.trim() || undefined,
+        // アップロード優先 → 楽天検索の画像 → 無し
+        image_url: imageUrl || selected?.imageUrl || undefined,
+        product_url: selected?.productUrl || undefined,
+        tpo_tags: selectedTpo,
+        season_tags: seasonTags,
+      })
+    )
     if (!result.ok) {
-      setSaveError(result.error || '保存に失敗しました')
+      setSaveError(result.userMessage || result.error || '保存に失敗しました')
       setSaving(false)
       return
     }

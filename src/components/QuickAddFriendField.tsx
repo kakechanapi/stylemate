@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import type { Gender, Relationship } from '@/types/fashion'
 import { quickAddFriendAction } from './friend-quick-add-action'
+import { handleActionResult } from './SessionExpiredHandler'
 
 interface Props {
   onAdded: (friend: { id: string; name: string }) => void
@@ -41,15 +42,17 @@ export default function QuickAddFriendField({ onAdded, placeholder, compact }: P
     if (!name.trim() || adding) return
     setAdding(true)
     setError('')
-    const result = await quickAddFriendAction({
-      name,
-      gender: gender || undefined,
-      birthday: birthday || undefined,
-      relationship,
-      note: note || undefined,
-    })
+    const result = handleActionResult(
+      await quickAddFriendAction({
+        name,
+        gender: gender || undefined,
+        birthday: birthday || undefined,
+        relationship,
+        note: note || undefined,
+      })
+    )
     if (!result.ok || !result.id || !result.name) {
-      setError(result.error || '追加に失敗しました')
+      setError(result.userMessage || result.error || '追加に失敗しました')
       setAdding(false)
       return
     }

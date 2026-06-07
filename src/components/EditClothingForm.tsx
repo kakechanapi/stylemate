@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ClothingItem, Category } from '@/types/fashion'
 import { updateClothingAction } from '@/app/closet/actions'
+import { handleActionResult } from './SessionExpiredHandler'
 
 const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
   { id: 'tops', label: 'トップス', emoji: '👕' },
@@ -38,15 +39,17 @@ export default function EditClothingForm({ item }: { item: ClothingItem }) {
     if (!name.trim() || saving) return
     setSaving(true)
     setError('')
-    const result = await updateClothingAction(item.id, {
-      name: name.trim(),
-      brand: brand.trim() || undefined,
-      category,
-      color: color.trim() || undefined,
-      tpo_tags: tpoTags,
-    })
+    const result = handleActionResult(
+      await updateClothingAction(item.id, {
+        name: name.trim(),
+        brand: brand.trim() || undefined,
+        category,
+        color: color.trim() || undefined,
+        tpo_tags: tpoTags,
+      })
+    )
     if (!result.ok) {
-      setError(result.error || '保存に失敗しました')
+      setError(result.userMessage || result.error || '保存に失敗しました')
       setSaving(false)
       return
     }

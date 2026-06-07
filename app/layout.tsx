@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import BottomNav from '@/components/BottomNav'
+import SessionExpiredHandler from '@/components/SessionExpiredHandler'
 
 export const metadata: Metadata = {
   title: 'StyleMate（仮）— AIコーデ提案 × 本人試着',
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <BottomNav />
+        <SessionExpiredHandler />
       </body>
     </html>
   )

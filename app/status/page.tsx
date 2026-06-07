@@ -23,14 +23,14 @@ interface Section {
 }
 
 // ─── 表示内容（編集ポイント） ───
-const LAST_UPDATED = '2026-06-06'
+const LAST_UPDATED = '2026-06-07'
 
 // 直近の "今やってること / 次やること" を一目で
 const NOW_DOING = {
-  title: 'Phase 5: LoRA 本人モード（実装中）',
-  subtitle: 'ユーザー自身で LoRA 訓練を走らせて動作確認するフェーズ',
-  current: '5-4 自分1人で訓練を走らせて動作確認',
-  next: '5-5 訓練済 LoRA × IDM-VTON の2段階パイプを実装',
+  title: '商品検索の本物データ化 + 公開準備',
+  subtitle: '楽天/Yahoo API 連携待ち。コスト管理ダッシュボードと品質改善を並行で進行中',
+  current: 'Yahoo!ID 新規制限の解除待ち（24-72時間ルール）',
+  next: '解除後：API キー反映 → demo フォールバック自動解除 → 実商品検索が稼働',
 }
 
 const sections: Section[] = [
@@ -51,10 +51,13 @@ const sections: Section[] = [
     percent: 95,
     items: [
       { label: '服の登録（手動）', status: 'done' },
-      { label: '楽天検索から登録', status: 'partial', note: '現状 demo data、楽天APIキー未取得' },
+      { label: '楽天/Yahoo検索から登録', status: 'in-progress', note: 'マルチソース基盤完成・API繋ぎ込み待ち' },
+      { label: '商品名から自動判定（カテゴリ・色・TPO・シーズン）', status: 'done', note: '新規' },
       { label: '画像アップロード', status: 'done', note: 'Supabase Storage' },
+      { label: '外部画像の自前ストレージ永続化', status: 'done', note: '新規・外部側で消えても残る' },
       { label: 'カテゴリフィルタ（即時切替）', status: 'done' },
       { label: '編集・削除（長押し）', status: 'done' },
+      { label: '服削除→着用記録の整合性自動維持', status: 'done', note: '新規' },
     ],
   },
   {
@@ -71,28 +74,65 @@ const sections: Section[] = [
   {
     title: '友人 + 自分プロフィール',
     emoji: '👥',
-    percent: 90,
+    percent: 100,
     items: [
       { label: '自分登録（マイページ統合）', status: 'done', note: '名前・身長・体型・性別' },
       { label: '会う相手登録', status: 'done' },
       { label: 'マルチ写真選択（5-30枚）', status: 'done', note: '自動品質判定' },
-      { label: '詳細ページの編集UI', status: 'todo', note: '現状は閲覧のみ' },
+      { label: '友達の編集ページ実装', status: 'done', note: '新規・性別/誕生日/関係性/写真/メモ' },
+      { label: 'メモ自由記述欄', status: 'done', note: '新規' },
+      { label: '友達のクイック追加（着用記録画面から）', status: 'done', note: '新規' },
+      { label: '友達は身長/体型/LoRA/試着なし', status: 'done', note: 'スコープ確定' },
     ],
   },
   {
     title: 'AI コーデ提案',
     emoji: '🤖',
-    percent: 95,
+    percent: 100,
     items: [
       { label: '天気・TPO 考慮', status: 'done' },
-      { label: '服装指数 反映', status: 'done', note: '新規' },
-      { label: '性別・体型・身長 反映', status: 'done', note: '新規' },
+      { label: '服装指数 反映', status: 'done' },
+      { label: '性別・体型・身長 反映', status: 'done' },
       { label: '予定・誰と 考慮', status: 'done' },
       { label: '被り回避（同じ相手と最近着た服を除外）', status: 'done' },
       { label: '嗜好（スワイプ学習）', status: 'done' },
       { label: '中身レイヤー提案', status: 'done', note: 'ヒートテック+白T+カーディガン等' },
-      { label: '503エラー自動リトライ + フォールバック', status: 'done', note: '新規' },
-      { label: 'お気に入り保存', status: 'todo' },
+      { label: '503エラー自動リトライ + フォールバック', status: 'done' },
+      { label: '画像コラージュ表示（着たイメージ Preview）', status: 'done', note: '新規' },
+      { label: 'アイテム単位の固定/却下ボタン', status: 'done', note: '新規・嗜好学習と連携' },
+      { label: '却下したアイテムだけ差し替え再提案', status: 'done', note: '新規' },
+      { label: '今日の服に決定→outfits自動保存', status: 'done', note: '新規' },
+      { label: '提案の永続化（タブ切替で消えない）', status: 'done', note: '新規・localStorage' },
+    ],
+  },
+  {
+    title: '商品検索（楽天/Yahoo マルチソース）',
+    emoji: '🛍',
+    percent: 70,
+    items: [
+      { label: 'マルチソース基盤実装', status: 'done', note: '新規・並列実行+重複排除+スコアソート' },
+      { label: '楽天市場ソース', status: 'in-progress', note: '実装済・新仕様の認証方式調査中' },
+      { label: 'Yahoo!ショッピングソース', status: 'in-progress', note: '実装済・新規ID制限解除待ち' },
+      { label: 'ブランド・カテゴリエイリアス', status: 'done', note: 'ジーンズ↔デニム等' },
+      { label: '本番demoフォールバック完全無効化', status: 'done', note: '偽データ表示事故防止' },
+      { label: '検索結果がdemoの時の警告UI', status: 'done' },
+      { label: '画像URL の自前永続化', status: 'done', note: '外部消失リスク対策' },
+    ],
+  },
+  {
+    title: '💰 コスト管理 + 管理者ダッシュボード',
+    emoji: '💰',
+    percent: 95,
+    items: [
+      { label: 'api_usage_logs テーブル', status: 'done', note: '新規・migration 0008' },
+      { label: '管理者判定（環境変数+DB列の二段）', status: 'done', note: '新規・柔軟性確保' },
+      { label: '使用ログ自動記録', status: 'done', note: '試着/LoRA/Geminiの4箇所' },
+      { label: '月間上限管理', status: 'done', note: '管理者1500円/他300円・個別上書可' },
+      { label: '上限超過時 試着/LoRA 自動ブロック', status: 'done', note: 'HTTP 429' },
+      { label: 'ユーザー警告バナー', status: 'done', note: '80%黄色/100%赤' },
+      { label: '/admin/costs ダッシュボード', status: 'done', note: '30秒オートリフレッシュ' },
+      { label: '今日/今月/サービス別/Top10/30日トレンド', status: 'done' },
+      { label: 'Replicate Webhookで実コスト校正', status: 'todo', note: 'VoC段階では推定値で十分' },
     ],
   },
   {
@@ -146,14 +186,17 @@ const sections: Section[] = [
   {
     title: '公開準備',
     emoji: '📋',
-    percent: 30,
+    percent: 55,
     items: [
       { label: '本番デプロイ稼働', status: 'done' },
       { label: '自動デプロイ', status: 'done' },
+      { label: '楽天 API キー取得', status: 'in-progress', note: '新仕様の認証方式調査中' },
+      { label: 'Yahoo!ショッピングAPIキー取得', status: 'in-progress', note: '新規ID制限の解除待ち（24-72h）' },
+      { label: 'コスト爆発対策（上限/警告/ダッシュボード）', status: 'done', note: '新規' },
+      { label: '本番でのダミーデータ事故防止', status: 'done', note: '新規' },
       { label: '利用規約', status: 'todo', note: '公開必須' },
       { label: 'プライバシーポリシー', status: 'todo', note: '公開必須' },
       { label: 'アプリ名確定（StyleMate は仮）', status: 'todo' },
-      { label: '楽天 API キー取得', status: 'todo', note: 'アプリ名確定後' },
       { label: 'オンボーディング画面', status: 'todo' },
     ],
   },
