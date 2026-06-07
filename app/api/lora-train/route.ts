@@ -3,6 +3,11 @@
 // GET:  ?id=trainingId で進捗ポーリング、完了時に LoRA URL を friends.lora_url に保存
 
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  assertWithinMonthlyCap,
+  logUsage,
+  SERVICE_COSTS_JPY,
+} from '@/lib/usage-cost'
 import Replicate from 'replicate'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
@@ -82,6 +87,23 @@ export async function POST(request: NextRequest) {
     // フレンド単位でユニークにしておく
     const tok = triggerWord || `TOK${friendId.slice(0, 6).replace(/-/g, '')}`
 
+    // 月間上限チェック（LoRA訓練 1回 450円相当を確保できるか）
+    // → 月300円ユーザーは自動的にここで弾かれる
+    try {
+      await assertWithinMonthlyCap(SERVICE_COSTS_JPY.replicate_lora_train)
+    } catch (e) {
+      return NextResponse.json(
+        {
+          error: 'monthly_cap_exceeded',
+          userMessage:
+            e instanceof Error
+              ? e.message
+              : '今月の使用上限に達しました。',
+        },
+        { status: 429 }
+      )
+    }
+
     // 訓練開始
     const training = await replicate.trainings.create(
       TRAINER.split('/')[0],
@@ -100,6 +122,14 @@ export async function POST(request: NextRequest) {
         },
       }
     )
+
+    // 使用ログ記録（訓練開始時点で課金確定するため、ここで残す）
+    void logUsage({
+      service: 'replicate_lora_train',
+      operation: 'trainings.create',
+      externalId: training.id,
+      meta: { friendId, triggerWord: tok },
+    })
 
     // friends を更新（status='training' + training_id を保存）
     await supabase

@@ -1,6 +1,7 @@
 // 嗜好学習（スワイプ履歴 + AI 推定）
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createSupabaseServerClient } from './supabase/server'
+import { logUsage } from './usage-cost'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
@@ -130,6 +131,13 @@ ${dislikedSwipes.length > 0
     const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
     const result = await model.generateContent(prompt)
     const text = result.response.text()
+    // 使用ログ
+    void logUsage({
+      service: 'gemini_style_profile',
+      operation: 'refreshStyleProfile',
+      tokensIn: Math.ceil(prompt.length / 4),
+      tokensOut: Math.ceil(text.length / 4),
+    })
     const m = text.match(/\{[\s\S]*\}/)
     if (!m) throw new Error('invalid AI response')
     const parsed = JSON.parse(m[0]) as { tags: string[]; summary: string }

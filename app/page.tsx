@@ -6,6 +6,7 @@ import { listEvents } from '@/lib/events'
 import { listFriends } from '@/lib/friends'
 import { listOutfits } from '@/lib/outfits'
 import HomeClient from './HomeClient'
+import CapWarningBanner from '@/components/CapWarningBanner'
 
 export default async function HomePage() {
   const now = new Date()
@@ -35,12 +36,18 @@ export default async function HomePage() {
   const todayOutfit = todayOutfits.length > 0 ? todayOutfits[0] : null
 
   return (
-    <HomeClient
-      clothes={clothes}
-      userEmail={user?.email || null}
-      upcomingEvents={upcomingEvents}
-      friendNames={friendNames}
-      todayOutfit={todayOutfit}
-    />
+    <>
+      {/* 月間使用量が 80% 超え or 100% 超過の時のみ表示 */}
+      <div style={{ padding: '12px 16px 0' }}>
+        <CapWarningBanner />
+      </div>
+      <HomeClient
+        clothes={clothes}
+        userEmail={user?.email || null}
+        upcomingEvents={upcomingEvents}
+        friendNames={friendNames}
+        todayOutfit={todayOutfit}
+      />
+    </>
   )
 }

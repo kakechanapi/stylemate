@@ -3,15 +3,17 @@ import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getStyleProfile } from '@/lib/style'
 import { listFriends } from '@/lib/friends'
+import { checkAdmin } from '@/lib/admin'
 import { signOut } from '../auth/actions'
 
 export default async function MyPage() {
   const supabase = await createSupabaseServerClient()
 
-  const [userRes, styleProfile, friends] = await Promise.all([
+  const [userRes, styleProfile, friends, admin] = await Promise.all([
     supabase.auth.getUser(),
     getStyleProfile(),
     listFriends(),
+    checkAdmin(),
   ])
   const user = userRes.data.user
 
@@ -208,6 +210,41 @@ export default async function MyPage() {
           <MenuRow icon="❓" label="ヘルプ" disabled hint="準備中" last />
         </div>
       </section>
+
+      {/* 管理者専用メニュー */}
+      {admin.isAdmin && (
+        <section style={{ marginBottom: 24 }}>
+          <h2
+            style={{
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              color: '#C4779B',
+              letterSpacing: 1,
+              marginBottom: 8,
+            }}
+          >
+            管理者メニュー
+          </h2>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #F5C6D8' }}>
+            <Link
+              href="/admin/costs"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '14px 16px',
+                color: '#333',
+                textDecoration: 'none',
+                fontSize: '0.95rem',
+              }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>💰</span>
+              <span style={{ flex: 1 }}>コストダッシュボード</span>
+              <span style={{ color: '#bbb' }}>›</span>
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* ログアウト */}
       <form action={signOut}>

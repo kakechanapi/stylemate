@@ -4,6 +4,7 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { ClothingItem, TPO, WeatherData } from '@/types/fashion'
+import { logUsage } from './usage-cost'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
@@ -135,6 +136,13 @@ ${clothesSummary || '（まだ服が登録されていません）'}
 
   try {
     const text = await callGeminiWithRetry(prompt)
+    // 使用ログ（成功時のみ。失敗時はリトライ済で課金は変動する想定）
+    void logUsage({
+      service: 'gemini_outfit_suggest',
+      operation: 'generateContent',
+      tokensIn: Math.ceil(prompt.length / 4), // 概算（1トークン≒4文字）
+      tokensOut: Math.ceil(text.length / 4),
+    })
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])

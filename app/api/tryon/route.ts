@@ -5,6 +5,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Replicate from 'replicate'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import {
+  assertWithinMonthlyCap,
+  logUsage,
+  SERVICE_COSTS_JPY,
+} from '@/lib/usage-cost'
 
 // cuuupid/idm-vton（ECCV2024 採択 SOTA）
 const MODEL_VERSION =
@@ -51,6 +56,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 月間上限チェック（試着1回 16円相当を確保できるか）
+    try {
+      await assertWithinMonthlyCap(SERVICE_COSTS_JPY.replicate_tryon)
+    } catch (e) {
+      return NextResponse.json(
+        {
+          error: 'monthly_cap_exceeded',
+          userMessage:
+            e instanceof Error
+              ? e.message
+              : '今月の使用上限に達しました。来月までお待ちください。',
+        },
+        { status: 429 }
+      )
+    }
+
     const prediction = await replicate.predictions.create({
       version: MODEL_VERSION,
       input: {
@@ -62,6 +83,14 @@ export async function POST(request: NextRequest) {
         denoise_steps: 40,
         seed: 42,
       },
+    })
+
+    // 使用ログ記録（試着開始時点で課金確定するため、ここで残す）
+    void logUsage({
+      service: 'replicate_tryon',
+      operation: 'predictions.create',
+      externalId: prediction.id,
+      meta: { friendId, clothingId },
     })
 
     // tryons レコード作成（pending）
