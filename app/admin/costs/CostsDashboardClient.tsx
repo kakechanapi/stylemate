@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import type { DashboardSummary } from '@/lib/admin-costs'
-import { getServiceLabel } from '@/lib/admin-costs'
+import type { DashboardSummary } from '@/lib/admin-costs-shared'
+import { getServiceLabel } from '@/lib/admin-costs-shared'
 import { refreshDashboardAction } from './actions'
 
 const REFRESH_INTERVAL_MS = 30_000

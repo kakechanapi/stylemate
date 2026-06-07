@@ -1,24 +1,14 @@
 // /admin/costs ダッシュボード用の集計クエリ
 // すべて管理者権限前提（RLS で他人の usage_logs も読める）
+// ⚠️ このファイルは createSupabaseServerClient を使うため
+//    クライアントコンポーネントから import 禁止。
+//    クライアント側で型・ラベルが必要な場合は admin-costs-shared.ts を使う。
 
 import { createSupabaseServerClient } from './supabase/server'
-import { SERVICE_COSTS_JPY } from './usage-cost'
+import type { DashboardSummary } from './admin-costs-shared'
 
-export interface DashboardSummary {
-  todayTotal: number
-  monthTotal: number
-  byService: Record<string, { count: number; cost: number }>
-  topUsers: { user_id: string; email: string | null; username: string | null; cost: number; count: number }[]
-  daily: { date: string; cost: number }[]
-  recent: {
-    id: string
-    user_id: string | null
-    username: string | null
-    service: string
-    cost: number
-    created_at: string
-  }[]
-}
+export type { DashboardSummary } from './admin-costs-shared'
+export { getServiceLabel, getServiceUnitCost } from './admin-costs-shared'
 
 export async function fetchDashboardSummary(): Promise<DashboardSummary> {
   const supabase = await createSupabaseServerClient()
@@ -130,18 +120,3 @@ export async function fetchDashboardSummary(): Promise<DashboardSummary> {
   }
 }
 
-export function getServiceLabel(serviceId: string): string {
-  const map: Record<string, string> = {
-    replicate_tryon: '試着（IDM-VTON）',
-    replicate_lora_train: 'LoRA訓練',
-    replicate_sv3d: '360°回転',
-    gemini_outfit_suggest: 'コーデ提案',
-    gemini_style_classify: '嗜好分類',
-    gemini_style_profile: '嗜好プロフィール更新',
-  }
-  return map[serviceId] || serviceId
-}
-
-export function getServiceUnitCost(serviceId: string): number {
-  return SERVICE_COSTS_JPY[serviceId] || 0
-}

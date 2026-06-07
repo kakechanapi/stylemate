@@ -5,30 +5,14 @@
 
 import { createSupabaseServerClient } from './supabase/server'
 import { checkAdmin } from './admin'
+import {
+  SERVICE_COSTS_JPY,
+  DEFAULT_MONTHLY_CAP_JPY,
+  type ServiceId,
+} from './usage-cost-constants'
 
-// ─── サービスごとの推定コスト（円） ───
-// Replicate / Gemini は使用ベースで変動するため概算値。
-// 正確な金額は Replicate / Google Cloud Console で確認可能。
-// VoC段階では「目安として」の値で十分。
-export const SERVICE_COSTS_JPY: Record<string, number> = {
-  // Replicate
-  replicate_tryon: 16, // IDM-VTON 1回 ≒ $0.10
-  replicate_lora_train: 450, // ostris/flux-dev-lora-trainer 1回 ≒ $2.00
-  replicate_sv3d: 18, // 360°回転 1回 ≒ $0.12（Phase 9）
-  // Gemini (Flash モデル前提、トークン数で多少変動)
-  gemini_outfit_suggest: 0.05,
-  gemini_style_classify: 0.05,
-  gemini_style_profile: 0.1,
-}
-
-export type ServiceId = keyof typeof SERVICE_COSTS_JPY
-
-// ─── デフォルト月間上限（円） ───
-// VoC段階の保守的な設定。/admin/users で個別に上書き可。
-export const DEFAULT_MONTHLY_CAP_JPY = {
-  admin: 1500, // 私（管理者）
-  user: 300, // その他ユーザー（試着 約18回分。LoRA訓練は自動的にブロックされる）
-}
+// 定数を再エクスポート（既存 import 経路を壊さないため）
+export { SERVICE_COSTS_JPY, DEFAULT_MONTHLY_CAP_JPY, type ServiceId }
 
 // ─── 利用ログを書き込む ───
 export async function logUsage(input: {
