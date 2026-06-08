@@ -325,23 +325,17 @@ export default function RegisterPage() {
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {searchResults.map((product, i) => (
-                  <div
+                  <button
                     key={i}
+                    type="button"
                     onClick={() => handleSelectProduct(product)}
-                    style={{
-                      display: 'flex',
-                      gap: '12px',
-                      background: '#fff',
-                      borderRadius: '14px',
-                      padding: '12px',
-                      border: '2px solid #FFE4F0',
-                      cursor: 'pointer',
-                    }}
+                    className="result-card"
+                    aria-label={`${product.brand} ${product.name} を選択`}
                   >
                     {product.imageUrl ? (
                       <img
                         src={product.imageUrl}
-                        alt={product.name}
+                        alt=""
                         style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }}
                       />
                     ) : (
@@ -349,7 +343,7 @@ export default function RegisterPage() {
                         👗
                       </div>
                     )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                       <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#333', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {product.name}
                         {product.source === 'demo' && (
@@ -375,10 +369,72 @@ export default function RegisterPage() {
                         </p>
                       )}
                     </div>
-                    <div style={{ color: '#E8A0BF', fontSize: '1.2rem', alignSelf: 'center' }}>→</div>
-                  </div>
+                    <span className="result-card__cta" aria-hidden="true">
+                      選択
+                      <span className="result-card__cta-arrow">→</span>
+                    </span>
+                  </button>
                 ))}
               </div>
+              <style jsx>{`
+                .result-card {
+                  display: flex;
+                  gap: 12px;
+                  align-items: center;
+                  background: #fff;
+                  border-radius: 14px;
+                  padding: 12px;
+                  border: 2px solid #ffe4f0;
+                  cursor: pointer;
+                  width: 100%;
+                  font: inherit;
+                  color: inherit;
+                  text-align: left;
+                  transition: transform 0.12s ease, box-shadow 0.18s ease,
+                    border-color 0.18s ease, background 0.18s ease;
+                  -webkit-tap-highlight-color: transparent;
+                }
+                .result-card:hover {
+                  border-color: #e8a0bf;
+                  box-shadow: 0 6px 18px rgba(232, 160, 191, 0.22);
+                  transform: translateY(-1px);
+                }
+                .result-card:active {
+                  transform: scale(0.98);
+                  background: #fff8fb;
+                  box-shadow: 0 1px 4px rgba(232, 160, 191, 0.18);
+                }
+                .result-card:focus-visible {
+                  outline: 3px solid #e8a0bf;
+                  outline-offset: 2px;
+                }
+                .result-card__cta {
+                  flex-shrink: 0;
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 4px;
+                  background: linear-gradient(135deg, #ffe4f0, #ffd3e3);
+                  color: #c4779b;
+                  font-size: 0.72rem;
+                  font-weight: 800;
+                  padding: 7px 12px;
+                  border-radius: 999px;
+                  letter-spacing: 0.5px;
+                  transition: background 0.18s ease, color 0.18s ease,
+                    transform 0.18s ease;
+                }
+                .result-card:hover .result-card__cta {
+                  background: linear-gradient(135deg, #e8a0bf, #c4779b);
+                  color: #fff;
+                }
+                .result-card__cta-arrow {
+                  display: inline-block;
+                  transition: transform 0.2s ease;
+                }
+                .result-card:hover .result-card__cta-arrow {
+                  transform: translateX(3px);
+                }
+              `}</style>
             </div>
           )}
 
