@@ -18,6 +18,67 @@ export async function listFriends(): Promise<Friend[]> {
   return (data || []) as Friend[]
 }
 
+// リッチ表示用：会った回数・最終会った日を付与した型
+export type FriendWithMeta = Friend & {
+  last_met_at?: string // YYYY-MM-DD
+  met_count: number
+}
+
+/**
+ * 友達一覧 + outfits.met_with_friend_ids から「会った回数」「最終会った日」を集計
+ * /friends 一覧のリッチカード表示用
+ */
+export async function listFriendsWithLastMet(): Promise<FriendWithMeta[]> {
+  const supabase = await createSupabaseServerClient()
+  const [{ data: friendsData, error: fErr }, { data: outfitsData, error: oErr }] =
+    await Promise.all([
+      supabase
+        .from('friends')
+        .select('*')
+        .order('is_me', { ascending: false })
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('outfits')
+        .select('worn_at, met_with_friend_ids')
+        .order('worn_at', { ascending: false }),
+    ])
+
+  if (fErr) {
+    console.error('[lib/friends] listWithLastMet friends error:', fErr.message)
+    return []
+  }
+  if (oErr) {
+    // outfits 取得失敗しても友達一覧は返す
+    console.error('[lib/friends] listWithLastMet outfits error:', oErr.message)
+  }
+
+  const friends = (friendsData || []) as Friend[]
+  const outfits =
+    (outfitsData || []) as { worn_at: string; met_with_friend_ids: string[] | null }[]
+
+  // 友達ID → { last_met_at, count } を集計
+  const metaMap = new Map<string, { last_met_at?: string; count: number }>()
+  for (const o of outfits) {
+    if (!o.met_with_friend_ids || o.met_with_friend_ids.length === 0) continue
+    for (const fid of o.met_with_friend_ids) {
+      const cur = metaMap.get(fid) || { count: 0 }
+      cur.count += 1
+      // outfits は worn_at desc 順なので、初回出現が最新
+      if (!cur.last_met_at) cur.last_met_at = o.worn_at
+      metaMap.set(fid, cur)
+    }
+  }
+
+  return friends.map((f) => {
+    const meta = metaMap.get(f.id)
+    return {
+      ...f,
+      last_met_at: meta?.last_met_at,
+      met_count: meta?.count || 0,
+    }
+  })
+}
+
 export async function getFriend(id: string): Promise<Friend | null> {
   const supabase = await createSupabaseServerClient()
   const { data, error } = await supabase.from('friends').select('*').eq('id', id).single()

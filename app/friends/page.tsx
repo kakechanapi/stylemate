@@ -1,11 +1,11 @@
 // 会う相手の一覧（被り回避コーデ提案に紐付ける人物）
 // 注：「自分」は is_me=true で別管理 → マイページから操作
 import Link from 'next/link'
-import { listFriends } from '@/lib/friends'
+import { listFriendsWithLastMet } from '@/lib/friends'
 import FriendCard from '@/components/FriendCard'
 
 export default async function FriendsPage() {
-  const all = await listFriends()
+  const all = await listFriendsWithLastMet()
   // 「自分」を除いた人だけ表示
   const friends = all.filter((f) => !f.is_me)
 
@@ -86,7 +86,7 @@ export default async function FriendsPage() {
           </Link>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {friends.map((f) => (
             <FriendCard key={f.id} friend={f} />
           ))}
