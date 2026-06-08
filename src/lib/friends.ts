@@ -18,14 +18,15 @@ export async function listFriends(): Promise<Friend[]> {
   return (data || []) as Friend[]
 }
 
-// リッチ表示用：会った回数・最終会った日を付与した型
+// リッチ表示用：会った回数・最終会った日・最後に着た服の画像
 export type FriendWithMeta = Friend & {
   last_met_at?: string // YYYY-MM-DD
   met_count: number
+  last_met_cloth_images?: string[] // 最後に会った時に着てた服のサムネ（最大4枚）
 }
 
 /**
- * 友達一覧 + outfits.met_with_friend_ids から「会った回数」「最終会った日」を集計
+ * 友達一覧 + outfits.met_with_friend_ids から「会った回数」「最終会った日」「最後に着た服」を集計
  * /friends 一覧のリッチカード表示用
  */
 export async function listFriendsWithLastMet(): Promise<FriendWithMeta[]> {
@@ -39,7 +40,7 @@ export async function listFriendsWithLastMet(): Promise<FriendWithMeta[]> {
         .order('created_at', { ascending: false }),
       supabase
         .from('outfits')
-        .select('worn_at, met_with_friend_ids')
+        .select('worn_at, met_with_friend_ids, cloth_ids')
         .order('worn_at', { ascending: false }),
     ])
 
@@ -54,27 +55,63 @@ export async function listFriendsWithLastMet(): Promise<FriendWithMeta[]> {
 
   const friends = (friendsData || []) as Friend[]
   const outfits =
-    (outfitsData || []) as { worn_at: string; met_with_friend_ids: string[] | null }[]
+    (outfitsData || []) as {
+      worn_at: string
+      met_with_friend_ids: string[] | null
+      cloth_ids: string[] | null
+    }[]
 
-  // 友達ID → { last_met_at, count } を集計
-  const metaMap = new Map<string, { last_met_at?: string; count: number }>()
+  // 友達ID → { last_met_at, count, last_cloth_ids } を集計
+  const metaMap = new Map<
+    string,
+    { last_met_at?: string; count: number; last_cloth_ids?: string[] }
+  >()
   for (const o of outfits) {
     if (!o.met_with_friend_ids || o.met_with_friend_ids.length === 0) continue
     for (const fid of o.met_with_friend_ids) {
       const cur = metaMap.get(fid) || { count: 0 }
       cur.count += 1
       // outfits は worn_at desc 順なので、初回出現が最新
-      if (!cur.last_met_at) cur.last_met_at = o.worn_at
+      if (!cur.last_met_at) {
+        cur.last_met_at = o.worn_at
+        cur.last_cloth_ids = o.cloth_ids || []
+      }
       metaMap.set(fid, cur)
+    }
+  }
+
+  // 全 friend の「最後に着た服」cloth_ids をユニークに集めて一括で image_url を引く（N+1回避）
+  const allClothIds = new Set<string>()
+  for (const meta of metaMap.values()) {
+    for (const cid of meta.last_cloth_ids || []) allClothIds.add(cid)
+  }
+
+  const imageByClothId = new Map<string, string>()
+  if (allClothIds.size > 0) {
+    const { data: clothesData, error: cErr } = await supabase
+      .from('clothes')
+      .select('id, image_url')
+      .in('id', Array.from(allClothIds))
+    if (cErr) {
+      console.error('[lib/friends] listWithLastMet clothes error:', cErr.message)
+    } else {
+      for (const c of clothesData || []) {
+        if (c.image_url) imageByClothId.set(c.id, c.image_url)
+      }
     }
   }
 
   return friends.map((f) => {
     const meta = metaMap.get(f.id)
+    const images = (meta?.last_cloth_ids || [])
+      .map((cid) => imageByClothId.get(cid))
+      .filter((u): u is string => !!u)
+      .slice(0, 4)
     return {
       ...f,
       last_met_at: meta?.last_met_at,
       met_count: meta?.count || 0,
+      last_met_cloth_images: images.length > 0 ? images : undefined,
     }
   })
 }

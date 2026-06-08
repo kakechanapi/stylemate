@@ -83,6 +83,7 @@ export default function FriendCard({ friend }: { friend: Friend | FriendWithMeta
   const withMeta = friend as FriendWithMeta
   const lastMet = withMeta.last_met_at
   const metCount = withMeta.met_count || 0
+  const lastClothImages = withMeta.last_met_cloth_images || []
 
   return (
     <Link
@@ -236,26 +237,64 @@ export default function FriendCard({ friend }: { friend: Friend | FriendWithMeta
           )}
         </div>
 
-        {/* 3段目：最終会った日 + 会った回数 */}
+        {/* 3段目：最終会った日 + 会った回数 + 最後に着た服のサムネ */}
         {(lastMet || metCount > 0) && (
           <div
             style={{
-              fontSize: '0.72rem',
-              color: '#888',
               marginBottom: friend.note ? 6 : 0,
-              display: 'flex',
-              gap: 8,
-              alignItems: 'center',
             }}
           >
-            {lastMet ? (
-              <>
-                <span>🕐 最終: {relativeDays(lastMet)}</span>
-                <span style={{ color: '#bbb' }}>·</span>
-                <span>{metCount}回</span>
-              </>
-            ) : (
-              <span style={{ color: '#bbb' }}>記録なし</span>
+            <div
+              style={{
+                fontSize: '0.72rem',
+                color: '#888',
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center',
+                marginBottom: lastClothImages.length > 0 ? 6 : 0,
+              }}
+            >
+              {lastMet ? (
+                <>
+                  <span>🕐 最終: {relativeDays(lastMet)}</span>
+                  <span style={{ color: '#bbb' }}>·</span>
+                  <span>{metCount}回</span>
+                </>
+              ) : (
+                <span style={{ color: '#bbb' }}>記録なし</span>
+              )}
+            </div>
+            {lastClothImages.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 4,
+                  alignItems: 'center',
+                }}
+                title="前回会った時に着てた服（被り回避の参考に）"
+              >
+                <span style={{ fontSize: '0.62rem', color: '#bbb', marginRight: 2 }}>
+                  前回:
+                </span>
+                {lastClothImages.map((url, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={url}
+                    alt=""
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '1.5px solid #fff',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                      marginLeft: i === 0 ? 0 : -6,
+                      background: '#FFF0F6',
+                    }}
+                  />
+                ))}
+              </div>
             )}
           </div>
         )}
