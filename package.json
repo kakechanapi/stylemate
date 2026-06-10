@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate-questions": "node scripts/generate-questions.js"
+    "generate-questions": "node scripts/generate-questions.js",
+    "test:product-search": "node scripts/test-product-search.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
