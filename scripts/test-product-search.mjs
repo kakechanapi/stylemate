@@ -7,15 +7,19 @@
  *   node scripts/test-product-search.mjs ジーンズ
  *
  * 動作:
- *   1. .env.local から RAKUTEN_ACCESS_KEY / YAHOO_SHOPPING_APP_ID を読み込み
- *   2. 楽天は 3つの認証スキームを順番に試す（旧 applicationId / Bearer / ESA）
+ *   1. .env.local から認証情報を読み込み
+ *      - RAKUTEN_APPLICATION_ID（20桁の数字。webservice.rakuten.co.jp/app/list で確認）
+ *      - RAKUTEN_ACCESS_KEY（pk_... 形式。同管理画面に表示）
+ *      - YAHOO_SHOPPING_APP_ID（Yahoo!デベロッパーネットワーク）
+ *   2. 楽天は複数のスキームを順番に試す
+ *      新エンドポイント: openapi.rakuten.co.jp/ichibams/api/.../20260401
+ *      旧エンドポイント: app.rakuten.co.jp/services/api/.../20220601
  *   3. Yahoo は appid クエリで叩く
- *   4. 各 API のレスポンス（HTTP・エラー詳細・上位3件）を見やすく表示
+ *   4. レスポンス（HTTP・エラー詳細・上位3件）を色付き表示
  *
- * 新キー取得時の使い方:
- *   1. .env.local の RAKUTEN_ACCESS_KEY を新キーに書き換え
- *   2. このスクリプトを実行
- *   3. どのスキームで動いたか確認 → src/lib/product-search/sources/rakuten.ts を合わせる
+ * 楽天の新仕様（2026-04-01〜）:
+ *   - applicationId + accessKey の両方が必須
+ *   - accessKey はクエリ or HTTP ヘッダー（ヘッダー名は試行錯誤中）
  */
 
 import { readFile } from 'node:fs/promises'
@@ -98,44 +102,108 @@ function snippet(body) {
 
 async function tryRakuten(keyword) {
   header('楽天市場 IchibaItem Search')
-  const key = process.env.RAKUTEN_ACCESS_KEY
-  info(`キー: ${maskKey(key)}`)
-  if (!key) {
-    ng('RAKUTEN_ACCESS_KEY が未設定')
+  const accessKey = process.env.RAKUTEN_ACCESS_KEY
+  const appId = process.env.RAKUTEN_APPLICATION_ID
+  info(`accessKey (pk_...): ${maskKey(accessKey)}`)
+  info(`applicationId:     ${maskKey(appId)}`)
+
+  if (!accessKey && !appId) {
+    ng('RAKUTEN_ACCESS_KEY / RAKUTEN_APPLICATION_ID どちらも未設定')
     return
   }
 
-  const endpoint = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601'
-  const schemes = [
-    {
-      name: 'applicationId クエリ（旧来）',
+  // 新エンドポイント（2026-04-01）と旧エンドポイントの両方を試す
+  const newEndpoint =
+    'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401'
+  const oldEndpoint =
+    'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601'
+
+  const schemes = []
+
+  // ── 新仕様（推奨）：applicationId + accessKey の両方
+  if (appId && accessKey) {
+    schemes.push({
+      name: '【新】両キー・クエリ',
       build: () => {
-        const u = new URL(endpoint)
-        u.searchParams.set('applicationId', key)
+        const u = new URL(newEndpoint)
+        u.searchParams.set('applicationId', appId)
+        u.searchParams.set('accessKey', accessKey)
         u.searchParams.set('keyword', keyword)
         u.searchParams.set('hits', '3')
         return { url: u.toString(), init: {} }
       },
-    },
-    {
-      name: 'Authorization: ESA（現コード）',
+    })
+    schemes.push({
+      name: '【新】applicationIdクエリ + accessKey ヘッダー(Authorization Bearer)',
       build: () => {
-        const u = new URL(endpoint)
+        const u = new URL(newEndpoint)
+        u.searchParams.set('applicationId', appId)
         u.searchParams.set('keyword', keyword)
         u.searchParams.set('hits', '3')
-        return { url: u.toString(), init: { headers: { Authorization: `ESA ${key}` } } }
+        return {
+          url: u.toString(),
+          init: { headers: { Authorization: `Bearer ${accessKey}` } },
+        }
       },
-    },
-    {
-      name: 'Authorization: Bearer',
+    })
+    schemes.push({
+      name: '【新】applicationIdクエリ + X-Rakuten-AccessKey ヘッダー',
       build: () => {
-        const u = new URL(endpoint)
+        const u = new URL(newEndpoint)
+        u.searchParams.set('applicationId', appId)
         u.searchParams.set('keyword', keyword)
         u.searchParams.set('hits', '3')
-        return { url: u.toString(), init: { headers: { Authorization: `Bearer ${key}` } } }
+        return {
+          url: u.toString(),
+          init: { headers: { 'X-Rakuten-AccessKey': accessKey } },
+        }
       },
-    },
-  ]
+    })
+  }
+
+  // ── accessKey 単独で新エンドポイントを叩く（applicationId 不要の可能性チェック）
+  if (accessKey && !appId) {
+    schemes.push({
+      name: '【新】accessKey 単独・クエリ（applicationId 未取得時の試行）',
+      build: () => {
+        const u = new URL(newEndpoint)
+        u.searchParams.set('accessKey', accessKey)
+        u.searchParams.set('keyword', keyword)
+        u.searchParams.set('hits', '3')
+        return { url: u.toString(), init: {} }
+      },
+    })
+  }
+
+  // ── 旧仕様の互換性チェック（applicationId のみ）
+  if (appId) {
+    schemes.push({
+      name: '【旧】applicationId クエリ（互換性チェック）',
+      build: () => {
+        const u = new URL(oldEndpoint)
+        u.searchParams.set('applicationId', appId)
+        u.searchParams.set('keyword', keyword)
+        u.searchParams.set('hits', '3')
+        return { url: u.toString(), init: {} }
+      },
+    })
+  }
+
+  // ── 現コードと同じ（旧エンドポイント + ESA ヘッダー）
+  if (accessKey) {
+    schemes.push({
+      name: '【旧コード】Authorization: ESA',
+      build: () => {
+        const u = new URL(oldEndpoint)
+        u.searchParams.set('keyword', keyword)
+        u.searchParams.set('hits', '3')
+        return {
+          url: u.toString(),
+          init: { headers: { Authorization: `ESA ${accessKey}` } },
+        }
+      },
+    })
+  }
 
   let anySuccess = false
   for (const s of schemes) {
@@ -151,14 +219,19 @@ async function tryRakuten(keyword) {
       ng(`${s.name} → HTTP ${r.status} · ${snippet(r.body)}`)
     }
   }
+
   if (!anySuccess) {
     console.log()
-    info(
-      '💡 全スキーム失敗。新仕様の場合は楽天ドキュメントを再確認、'
-    )
-    info(
-      '   または webservice.rakuten.co.jp でキーが現在も有効か確認してください。'
-    )
+    info('💡 全スキーム失敗。')
+    if (!appId) {
+      info('   applicationId（20桁数字）が未設定です。')
+      info('   https://webservice.rakuten.co.jp/app/list でアプリ詳細を開いて確認、')
+      info('   .env.local に RAKUTEN_APPLICATION_ID=... を追加してください。')
+    } else {
+      info('   キーが両方揃っていて全失敗の場合：')
+      info('   - 数字とpk_が逆になっていないか確認')
+      info('   - アプリのステータスが「公開」になっているか確認')
+    }
   }
 }
 
