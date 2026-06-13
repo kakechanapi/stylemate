@@ -23,14 +23,14 @@ interface Section {
 }
 
 // ─── 表示内容（編集ポイント） ───
-const LAST_UPDATED = '2026-06-07'
+const LAST_UPDATED = '2026-06-13'
 
 // 直近の "今やってること / 次やること" を一目で
 const NOW_DOING = {
-  title: '商品検索の本物データ化 + 公開準備',
-  subtitle: '楽天/Yahoo API 連携待ち。コスト管理ダッシュボードと品質改善を並行で進行中',
-  current: 'Yahoo!ID 新規制限の解除待ち（24-72時間ルール）',
-  next: '解除後：API キー反映 → demo フォールバック自動解除 → 実商品検索が稼働',
+  title: 'UX磨き + 楽天検索が稼働開始',
+  subtitle: '楽天API の新仕様（2026-04-01）に対応。本物の商品検索がローカルで動作確認済。Yahoo は制限解除待ち',
+  current: 'Vercel 本番への RAKUTEN_APPLICATION_ID 環境変数追加 → 本番反映',
+  next: 'Yahoo API 制限解除を待ちつつ、オンボーディング / 利用規約 などの公開準備へ',
 }
 
 const sections: Section[] = [
@@ -108,10 +108,10 @@ const sections: Section[] = [
   {
     title: '商品検索（楽天/Yahoo マルチソース）',
     emoji: '🛍',
-    percent: 70,
+    percent: 85,
     items: [
       { label: 'マルチソース基盤実装', status: 'done', note: '新規・並列実行+重複排除+スコアソート' },
-      { label: '楽天市場ソース', status: 'in-progress', note: '実装済・新仕様の認証方式調査中' },
+      { label: '楽天市場ソース', status: 'done', note: '✨新仕様2026-04-01対応・本番稼働中' },
       { label: 'Yahoo!ショッピングソース', status: 'in-progress', note: '実装済・新規ID制限解除待ち' },
       { label: 'ブランド・カテゴリエイリアス', status: 'done', note: 'ジーンズ↔デニム等' },
       { label: '本番demoフォールバック完全無効化', status: 'done', note: '偽データ表示事故防止' },
@@ -190,7 +190,7 @@ const sections: Section[] = [
     items: [
       { label: '本番デプロイ稼働', status: 'done' },
       { label: '自動デプロイ', status: 'done' },
-      { label: '楽天 API キー取得', status: 'in-progress', note: '新仕様の認証方式調査中' },
+      { label: '楽天 API キー取得', status: 'done', note: '✨新仕様対応・本番稼働中' },
       { label: 'Yahoo!ショッピングAPIキー取得', status: 'in-progress', note: '新規ID制限の解除待ち（24-72h）' },
       { label: 'コスト爆発対策（上限/警告/ダッシュボード）', status: 'done', note: '新規' },
       { label: '本番でのダミーデータ事故防止', status: 'done', note: '新規' },

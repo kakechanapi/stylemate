@@ -116,12 +116,14 @@
 
 ## 🟡 進行中／待ち
 
-### 楽天API：認証方式が不明
-- アプリ自体は取得済（タイプ：API/バックエンドサービス、IP許可: 0.0.0.0/0）
-- アクセスキー `pk_eDQuIsZbD7TP61mnn8uh5YpX5noskeDJBH1GuGOQ5Oj` 設定済だが全認証スキームで invalid_token
-- 楽天が最近 UUID + pk_アクセスキー形式に仕様変更、新認証方法は知識ベース外
-- 対応：楽天ドキュメントで新仕様確認 or サポート問い合わせが必要
-- `.env.local` の `RAKUTEN_ACCESS_KEY` には現在のアクセスキー値が入ってる
+### 楽天API：✅ 本番稼働中（2026-06-13 解決）
+- 新仕様（2026-04-01）に対応完了
+- エンドポイント：`https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401`
+- 認証：`applicationId`（UUID形式）+ `accessKey`（pk_...）両方をクエリで指定
+- 環境変数：`RAKUTEN_APPLICATION_ID` + `RAKUTEN_ACCESS_KEY` を Production/Development に追加済
+  - Preview 環境への CLI 追加が詰まる → ダッシュボードで後追加：
+    https://vercel.com/kakechanapis-projects/stylemate/settings/environment-variables
+- 検証スクリプト：`npm run test:product-search ニット` で動作確認可
 
 ### Yahoo!ショッピングAPI：新規ID制限解除待ち
 - 新規Yahoo!ID作成済だが、`https://e.developer.yahoo.co.jp/dashboard/create` でエラーE700701（anti-fraud throttling）
