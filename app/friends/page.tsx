@@ -52,7 +52,7 @@ export default async function FriendsPage() {
       <div style={{ background: '#FFF5F8', borderRadius: 12, padding: 12, marginBottom: 20 }}>
         <p style={{ fontSize: '0.75rem', color: '#999', lineHeight: 1.6 }}>
           よく会う人を登録すると、AI が**「前回その人と着た服と被らない」**コーデを提案します。
-          顔写真は<b>任意</b>（試着用、複数枚あると本人モード対応）。
+          顔写真は<b>任意</b>（オンライン試着で使う。複数枚あるとよりリアルに）。
         </p>
       </div>
 

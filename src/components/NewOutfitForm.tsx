@@ -231,7 +231,7 @@ export default function NewOutfitForm({ clothes, friends: initialFriends, todayE
         </p>
       </Field>
 
-      <Field label="TPO">
+      <Field label="シーン">
         <div
           style={{
             display: 'flex',

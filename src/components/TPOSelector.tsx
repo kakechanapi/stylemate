@@ -17,7 +17,7 @@ interface Props {
 export default function TPOSelector({ selected, onChange }: Props) {
   return (
     <div>
-      <p style={{ fontSize: '0.8rem', color: '#999', marginBottom: '8px', fontWeight: 600 }}>今日のTPOは？</p>
+      <p style={{ fontSize: '0.8rem', color: '#999', marginBottom: '8px', fontWeight: 600 }}>今日のシーンは？</p>
       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
         {tpoOptions.map(opt => (
           <button

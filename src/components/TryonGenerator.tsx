@@ -69,7 +69,7 @@ export default function TryonGenerator(props: Props) {
         if (cancelled) return
         if (!startRes.ok) {
           clearInterval(progressTimer)
-          setError(startData.userMessage || startData.error || '試着開始に失敗しました')
+          setError(startData.userMessage || startData.error || 'オンライン試着の開始に失敗しました')
           setPhase('failed')
           return
         }
@@ -137,7 +137,7 @@ export default function TryonGenerator(props: Props) {
           <Link href={`/friends/${props.friendId}`} style={{ color: '#999', fontSize: '1.2rem' }}>
             ‹
           </Link>
-          <h1 style={{ fontSize: '1rem', fontWeight: 700, color: '#333' }}>試着完成</h1>
+          <h1 style={{ fontSize: '1rem', fontWeight: 700, color: '#333' }}>オンライン試着 完成</h1>
           <div style={{ width: 24 }} />
         </header>
 
@@ -145,7 +145,7 @@ export default function TryonGenerator(props: Props) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={resultUrl}
-            alt="試着結果"
+            alt="オンライン試着結果"
             style={{ width: '100%', borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
           />
           <div
@@ -175,7 +175,7 @@ export default function TryonGenerator(props: Props) {
                 cursor: 'pointer',
               }}
             >
-              別の服を試着
+              別の服でオンライン試着
             </button>
             <button
               onClick={() => router.push(`/friends/${props.friendId}`)}
@@ -205,7 +205,7 @@ export default function TryonGenerator(props: Props) {
       <div style={{ padding: '60px 24px', textAlign: 'center' }}>
         <div style={{ fontSize: '3rem', marginBottom: 12 }}>😢</div>
         <p style={{ color: '#333', fontSize: '0.95rem', fontWeight: 600, marginBottom: 8 }}>
-          試着できませんでした
+          オンライン試着できませんでした
         </p>
         <p style={{ color: '#999', fontSize: '0.8rem', marginBottom: 24, lineHeight: 1.6 }}>
           {error}

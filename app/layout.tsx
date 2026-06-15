@@ -4,9 +4,9 @@ import BottomNav from '@/components/BottomNav'
 import SessionExpiredHandler from '@/components/SessionExpiredHandler'
 
 export const metadata: Metadata = {
-  title: 'StyleMate（仮）— AIコーデ提案 × 本人試着',
+  title: 'StyleMate（仮）— AIコーデ提案 × オンライン試着',
   description:
-    '持ってる服を最大限活用し、毎日の最適コーデを AI が提案。足りなければ本人で試着して買える。',
+    '持ってる服を最大限活用し、毎日の最適コーデを AI が提案。足りなければオンラインで試着して買える。',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

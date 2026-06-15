@@ -85,7 +85,7 @@ export default function EditEventForm({
         <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle} />
       </Field>
 
-      <Field label="TPO">
+      <Field label="シーン">
         <div
           style={{
             display: 'flex',

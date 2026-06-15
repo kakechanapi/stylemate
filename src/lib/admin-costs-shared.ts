@@ -27,8 +27,8 @@ export function getServiceLabel(serviceId: string): string {
     replicate_lora_train: 'LoRA訓練',
     replicate_sv3d: '360°回転',
     gemini_outfit_suggest: 'コーデ提案',
-    gemini_style_classify: '嗜好分類',
-    gemini_style_profile: '嗜好プロフィール更新',
+    gemini_style_classify: '好み分類',
+    gemini_style_profile: '好みプロフィール更新',
   }
   return map[serviceId] || serviceId
 }

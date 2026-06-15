@@ -52,7 +52,7 @@ export default async function StylePage() {
                 marginBottom: 6,
               }}
             >
-              AI が推定したあなたの嗜好
+              AI が推定したあなたの好み
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               {profile.tags.map((t) => (
@@ -91,7 +91,7 @@ export default async function StylePage() {
               lineHeight: 1.6,
             }}
           >
-            👉 服を5枚以上スワイプすると、AI があなたの嗜好（系統）を分析します。
+            👉 服を5枚以上スワイプすると、AI があなたの好み（テイスト）を分析します。
             分析結果はコーデ提案に自動反映。
           </div>
         )}

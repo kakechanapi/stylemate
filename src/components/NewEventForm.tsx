@@ -104,7 +104,7 @@ export default function NewEventForm({
         />
       </Field>
 
-      <Field label="TPO">
+      <Field label="シーン">
         <div
           style={{
             display: 'flex',

@@ -178,7 +178,7 @@ export default function EditOutfitForm({ outfit, clothes, friends: initialFriend
         </div>
       </Field>
 
-      <Field label="TPO">
+      <Field label="シーン">
         <div
           style={{
             display: 'flex',

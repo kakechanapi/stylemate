@@ -8,11 +8,11 @@ import { signOut } from '../auth/actions'
 
 // LoRA 状態バッジのスタイル
 const LORA_LABEL: Record<string, { text: string; color: string; bg: string }> = {
-  none: { text: '通常モード', color: '#999', bg: '#f3f3f3' },
-  pending: { text: '本人モード候補', color: '#C4779B', bg: '#FFE4F0' },
-  training: { text: '訓練中…', color: '#1F75D6', bg: '#E1EEFF' },
-  ready: { text: '✓ 本人モード', color: '#0E9F6E', bg: '#E6F9F0' },
-  failed: { text: '訓練失敗', color: '#D63A3A', bg: '#FFE5E5' },
+  none: { text: 'オンライン試着 通常', color: '#999', bg: '#f3f3f3' },
+  pending: { text: 'よりリアルに 準備中', color: '#C4779B', bg: '#FFE4F0' },
+  training: { text: 'セットアップ中…', color: '#1F75D6', bg: '#E1EEFF' },
+  ready: { text: '✓ よりリアルに試着OK', color: '#0E9F6E', bg: '#E6F9F0' },
+  failed: { text: 'セットアップ失敗', color: '#D63A3A', bg: '#FFE5E5' },
 }
 
 const GENDER_SYMBOL: Record<string, { symbol: string; color: string }> = {
@@ -245,7 +245,7 @@ export default async function MyPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: '1.2rem' }}>💞</span>
           <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#333' }}>
-            あなたの嗜好
+            あなたの好み
           </span>
           {styleProfile && styleProfile.tags.length > 0 && (
             <span
@@ -318,7 +318,7 @@ export default async function MyPage() {
             </div>
             <div style={{ fontSize: '0.7rem', color: '#999', marginTop: 2 }}>
               {others.length > 0
-                ? `${others.length}人 登録 · 被り回避コーデ提案に使われます`
+                ? `${others.length}人 登録 · 服かぶり防止のコーデ提案に使われます`
                 : 'まだ登録なし · 予定タブで使えます'}
             </div>
           </div>

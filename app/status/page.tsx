@@ -4,7 +4,7 @@
 
 export const metadata = {
   title: 'StyleMate 開発状況',
-  description: 'AI ファッションコーデ × 本人試着アプリの開発進捗ダッシュボード',
+  description: 'AI ファッションコーデ × オンライン試着アプリの開発進捗ダッシュボード',
 }
 
 type Status = 'done' | 'partial' | 'todo' | 'in-progress'
@@ -41,7 +41,7 @@ const sections: Section[] = [
     items: [
       { label: '天気表示', status: 'done', note: '体感温度・風速・現在地' },
       { label: '服装指数（0-100 + 5段階）', status: 'done', note: '体感温度ベース' },
-      { label: 'AI コーデ提案', status: 'done', note: '天気・TPO・予定・嗜好・性別考慮' },
+      { label: 'AI コーデ提案', status: 'done', note: '天気・シーン・予定・好み・性別考慮' },
       { label: '直近の予定表示', status: 'done' },
     ],
   },
@@ -52,7 +52,7 @@ const sections: Section[] = [
     items: [
       { label: '服の登録（手動）', status: 'done' },
       { label: '楽天/Yahoo検索から登録', status: 'in-progress', note: 'マルチソース基盤完成・API繋ぎ込み待ち' },
-      { label: '商品名から自動判定（カテゴリ・色・TPO・シーズン）', status: 'done', note: '新規' },
+      { label: '商品名から自動判定（カテゴリ・色・シーン・シーズン）', status: 'done', note: '新規' },
       { label: '画像アップロード', status: 'done', note: 'Supabase Storage' },
       { label: '外部画像の自前ストレージ永続化', status: 'done', note: '新規・外部側で消えても残る' },
       { label: 'カテゴリフィルタ（即時切替）', status: 'done' },
@@ -65,7 +65,7 @@ const sections: Section[] = [
     emoji: '📅',
     percent: 100,
     items: [
-      { label: '予定登録（日時・TPO・誰と）', status: 'done' },
+      { label: '予定登録（日時・シーン・誰と）', status: 'done' },
       { label: '着用記録', status: 'done' },
       { label: 'iOS式 3ヶ月ストリップ', status: 'done', note: '指でスワイプ' },
       { label: '編集・削除', status: 'done' },
@@ -82,7 +82,7 @@ const sections: Section[] = [
       { label: '友達の編集ページ実装', status: 'done', note: '新規・性別/誕生日/関係性/写真/メモ' },
       { label: 'メモ自由記述欄', status: 'done', note: '新規' },
       { label: '友達のクイック追加（着用記録画面から）', status: 'done', note: '新規' },
-      { label: '友達は身長/体型/LoRA/試着なし', status: 'done', note: 'スコープ確定' },
+      { label: '友達は身長/体型/オンライン試着なし', status: 'done', note: 'スコープ確定' },
     ],
   },
   {
@@ -90,16 +90,16 @@ const sections: Section[] = [
     emoji: '🤖',
     percent: 100,
     items: [
-      { label: '天気・TPO 考慮', status: 'done' },
+      { label: '天気・シーン 考慮', status: 'done' },
       { label: '服装指数 反映', status: 'done' },
       { label: '性別・体型・身長 反映', status: 'done' },
       { label: '予定・誰と 考慮', status: 'done' },
-      { label: '被り回避（同じ相手と最近着た服を除外）', status: 'done' },
-      { label: '嗜好（スワイプ学習）', status: 'done' },
+      { label: '服かぶり防止（同じ相手と最近着た服を除外）', status: 'done' },
+      { label: '好み（スワイプ学習）', status: 'done' },
       { label: '中身レイヤー提案', status: 'done', note: 'ヒートテック+白T+カーディガン等' },
       { label: '503エラー自動リトライ + フォールバック', status: 'done' },
       { label: '画像コラージュ表示（着たイメージ Preview）', status: 'done', note: '新規' },
-      { label: 'アイテム単位の固定/却下ボタン', status: 'done', note: '新規・嗜好学習と連携' },
+      { label: 'アイテム単位の固定/却下ボタン', status: 'done', note: '新規・好み学習と連携' },
       { label: '却下したアイテムだけ差し替え再提案', status: 'done', note: '新規' },
       { label: '今日の服に決定→outfits自動保存', status: 'done', note: '新規' },
       { label: '提案の永続化（タブ切替で消えない）', status: 'done', note: '新規・localStorage' },
@@ -126,9 +126,9 @@ const sections: Section[] = [
     items: [
       { label: 'api_usage_logs テーブル', status: 'done', note: '新規・migration 0008' },
       { label: '管理者判定（環境変数+DB列の二段）', status: 'done', note: '新規・柔軟性確保' },
-      { label: '使用ログ自動記録', status: 'done', note: '試着/LoRA/Geminiの4箇所' },
+      { label: '使用ログ自動記録', status: 'done', note: 'オンライン試着/セットアップ/Geminiの4箇所' },
       { label: '月間上限管理', status: 'done', note: '管理者1500円/他300円・個別上書可' },
-      { label: '上限超過時 試着/LoRA 自動ブロック', status: 'done', note: 'HTTP 429' },
+      { label: '上限超過時 オンライン試着/セットアップ 自動ブロック', status: 'done', note: 'HTTP 429' },
       { label: 'ユーザー警告バナー', status: 'done', note: '80%黄色/100%赤' },
       { label: '/admin/costs ダッシュボード', status: 'done', note: '30秒オートリフレッシュ' },
       { label: '今日/今月/サービス別/Top10/30日トレンド', status: 'done' },
@@ -136,39 +136,39 @@ const sections: Section[] = [
     ],
   },
   {
-    title: 'AI 試着（IDM-VTON）',
+    title: 'オンライン試着',
     emoji: '👗',
     percent: 85,
     items: [
-      { label: '友人 + 服を選んで試着', status: 'done' },
+      { label: '友人 + 服を選んでオンライン試着', status: 'done' },
       { label: '結果保存', status: 'done', note: 'Supabase Storage' },
-      { label: '本人モード（LoRA）', status: 'in-progress', note: 'Phase 5 実装中。下の詳細参照' },
-      { label: '360° VR', status: 'todo', note: 'Phase 9' },
+      { label: 'よりリアルにオンライン試着（精度UP）', status: 'in-progress', note: 'Phase 5 実装中。下の詳細参照' },
+      { label: '360° で見る', status: 'todo', note: 'Phase 9' },
     ],
   },
   {
-    title: 'Phase 5: LoRA 本人モード（自分のみ）',
+    title: 'Phase 5: よりリアルにオンライン試着（自分のみ）',
     emoji: '🧬',
     percent: 55,
     items: [
       { label: '5-1 DB migration（0006_lora_training）', status: 'done' },
-      { label: '5-2 訓練API /api/lora-train', status: 'done', note: 'POST=開始 / GET=ポーリング' },
-      { label: '5-3 訓練UI LoraTrainingFlow', status: 'done', note: '自分プロフィールに移行予定' },
+      { label: '5-2 セットアップAPI /api/lora-train', status: 'done', note: 'POST=開始 / GET=ポーリング' },
+      { label: '5-3 セットアップUI LoraTrainingFlow', status: 'done', note: '自分プロフィールに移行予定' },
       { label: '5-3.5 手動セットアップ', status: 'done', note: 'Supabase / Replicate destination' },
-      { label: '5-4 自分1人で訓練を走らせる', status: 'in-progress', note: '実行中 or 直前' },
-      { label: '5-5 LoRA × IDM-VTON 2段階パイプ', status: 'todo', note: '次のタスク' },
-      { label: '5-6 試着UIに「本人モード」トグル', status: 'todo' },
-      { label: '5-7 試着10-20回で本人そっくり度評価', status: 'todo' },
-      { label: '友達向けLoRA / 試着は提供しない', status: 'done', note: 'スコープ確定（2026-06-06）' },
+      { label: '5-4 自分1人でセットアップを走らせる', status: 'in-progress', note: '実行中 or 直前' },
+      { label: '5-5 リアル試着の2段階パイプ', status: 'todo', note: '次のタスク' },
+      { label: '5-6 試着UIに「よりリアルに」トグル', status: 'todo' },
+      { label: '5-7 試着10-20回でそっくり度評価', status: 'todo' },
+      { label: '友達向けのリアル試着は提供しない', status: 'done', note: 'スコープ確定（2026-06-06）' },
     ],
   },
   {
-    title: '嗜好学習（Tinderスワイプ）',
+    title: '好み学習（Tinderスワイプ）',
     emoji: '💞',
     percent: 100,
     items: [
       { label: 'ドラッグスワイプ', status: 'done', note: '指追従・次カード浮き上がり' },
-      { label: 'Gemini で系統推定', status: 'done', note: 'カラー・パターン・シルエット' },
+      { label: 'Gemini でテイスト推定', status: 'done', note: 'カラー・パターン・シルエット' },
       { label: 'AI提案に自動付与', status: 'done' },
     ],
   },
@@ -207,7 +207,7 @@ const sections: Section[] = [
     items: [
       { label: '戦略方針確定（Swift native ハイブリッド）', status: 'done' },
       { label: 'アーキテクチャ設計', status: 'done' },
-      { label: 'Phase 5 (LoRA) 完成', status: 'todo', note: 'iOS着手前提' },
+      { label: 'Phase 5（よりリアルに試着）完成', status: 'todo', note: 'iOS着手前提' },
       { label: 'Xcode 環境準備', status: 'todo', note: '20GB+' },
       { label: 'Apple Developer Program ($99/年)', status: 'todo' },
       { label: 'Bundle ID 決定', status: 'todo', note: 'アプリ名確定後' },
@@ -244,7 +244,7 @@ export default function StatusPage() {
             StyleMate 開発状況
           </h1>
           <p style={{ fontSize: '0.78rem', color: '#888' }}>
-            AI ファッションコーデ × 本人試着アプリ
+            AI ファッションコーデ × オンライン試着アプリ
           </p>
           <p style={{ fontSize: '0.7rem', color: '#bbb', marginTop: 6 }}>
             最終更新：{LAST_UPDATED}
@@ -290,7 +290,7 @@ export default function StatusPage() {
           <p style={{ marginTop: 14, fontSize: '0.78rem', opacity: 0.95, lineHeight: 1.5 }}>
             本番稼働中・友達テスト中
             <br />
-            次の山：Phase 5（LoRA本人モード）
+            次の山：Phase 5（よりリアルにオンライン試着）
           </p>
         </div>
 

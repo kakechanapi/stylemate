@@ -55,7 +55,7 @@ export default function LoraTrainingFlow({
 
         if (data.status === 'succeeded') {
           setPhase('done')
-          setProgressMsg('✨ 本人モードの起動が完了しました！')
+          setProgressMsg('✨ セットアップ完了！よりリアルにオンライン試着できます')
           router.refresh()
         } else if (data.status === 'failed' || data.status === 'canceled') {
           setPhase('error')
@@ -174,11 +174,10 @@ export default function LoraTrainingFlow({
     return (
       <Box color="#34D399">
         <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#16a34a' }}>
-          ✓ 本人モード起動済
+          ✓ よりリアルに試着OK
         </h3>
         <p style={{ fontSize: '0.78rem', color: '#666', marginTop: 8, lineHeight: 1.6 }}>
-          {friendName} 用の LoRA モデルが完成しました。
-          試着で「本人モードを使う」を選ぶと、より{friendName}そっくりに仕上がります。
+          セットアップが完了しました。これからのオンライン試着が、より{friendName}そっくりに仕上がります。
         </p>
       </Box>
     )
@@ -189,7 +188,7 @@ export default function LoraTrainingFlow({
     return (
       <Box color="#E8A0BF">
         <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#C4779B' }}>
-          🌀 訓練中…
+          🌀 セットアップ中…
         </h3>
         <p style={{ fontSize: '0.78rem', color: '#666', marginTop: 8, lineHeight: 1.6 }}>
           {progressMsg || '20〜30分かかります。途中で画面を閉じても進行は続きます。'}
@@ -203,7 +202,7 @@ export default function LoraTrainingFlow({
     return (
       <Box color="#d63384">
         <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#d63384' }}>
-          訓練に失敗しました
+          セットアップに失敗しました
         </h3>
         <p style={{ fontSize: '0.78rem', color: '#666', marginTop: 6, lineHeight: 1.6 }}>
           {error}
@@ -226,20 +225,20 @@ export default function LoraTrainingFlow({
     return (
       <Box color="#E8A0BF">
         <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#333' }}>
-          本人モードを起動しますか？
+          よりリアルに試着できるようセットアップしますか？
         </h3>
         <ul style={{ marginTop: 10, paddingLeft: 18, fontSize: '0.8rem', color: '#666', lineHeight: 1.7 }}>
-          <li>登録済の {photoCount}枚 を使って LoRA モデルを訓練します</li>
-          <li>訓練に <b>20〜30分</b> かかります</li>
-          <li>コスト：<b>約 {ESTIMATED_COST_JPY}円</b>（Replicate 課金）</li>
-          <li>顔写真は Replicate に一時送信されますが、訓練後は Replicate 側で削除されます</li>
+          <li>登録済の {photoCount}枚 を使って AI に自分を学習させます</li>
+          <li>セットアップに <b>20〜30分</b> かかります</li>
+          <li>コスト：<b>約 {ESTIMATED_COST_JPY}円</b></li>
+          <li>顔写真は一時的に送信されますが、セットアップ後は外部側で削除されます</li>
         </ul>
         <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
           <button onClick={() => setPhase('idle')} style={btnSecondary}>
             キャンセル
           </button>
           <button onClick={startTraining} style={btnPrimary}>
-            訓練を開始する
+            セットアップを開始する
           </button>
         </div>
       </Box>
@@ -261,9 +260,9 @@ export default function LoraTrainingFlow({
   // idle：起動ボタン
   return (
     <Box color="#E8A0BF">
-      <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#333' }}>本人モード</h3>
+      <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#333' }}>よりリアルにオンライン試着</h3>
       <p style={{ fontSize: '0.78rem', color: '#666', marginTop: 6, lineHeight: 1.6 }}>
-        登録した {photoCount}枚 から AI を訓練し、試着結果を「{friendName}本人そっくり」にします。
+        登録した {photoCount}枚 から AI に自分を学習させて、オンライン試着を「{friendName}そっくり」に仕上げます。
       </p>
       {photoCount < 5 ? (
         <p
@@ -276,14 +275,14 @@ export default function LoraTrainingFlow({
             borderRadius: 8,
           }}
         >
-          ※ 訓練には写真が最低5枚必要です。「会う相手」ページから追加してください。
+          ※ セットアップには写真が最低5枚必要です。写真欄から追加してください。
         </p>
       ) : (
         <button
           onClick={() => setPhase('confirming')}
           style={{ ...btnPrimary, width: '100%', marginTop: 14 }}
         >
-          本人モードを起動（約 {ESTIMATED_COST_JPY}円）
+          セットアップする（約 {ESTIMATED_COST_JPY}円）
         </button>
       )}
     </Box>

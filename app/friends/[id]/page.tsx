@@ -149,7 +149,7 @@ export default async function FriendDetailPage({
                 boxShadow: '0 4px 14px rgba(196,121,155,0.3)',
               }}
             >
-              👗 服を試着する
+              👗 オンラインで試着する
             </Link>
 
             <div

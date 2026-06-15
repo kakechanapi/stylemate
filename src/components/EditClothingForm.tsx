@@ -113,7 +113,7 @@ export default function EditClothingForm({ item }: { item: ClothingItem }) {
         />
       </Field>
 
-      <Field label="TPO">
+      <Field label="シーン">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {TPO_OPTIONS.map((t) => {
             const active = tpoTags.includes(t)

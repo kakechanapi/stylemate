@@ -107,7 +107,7 @@ export default function StyleSwipeClient({
     const result = await refreshStyleProfileAction()
     setRefreshing(false)
     if (result.ok) {
-      setRefreshMsg('✨ あなたの嗜好を更新しました')
+      setRefreshMsg('✨ あなたの好みを更新しました')
       router.refresh()
     } else {
       setRefreshMsg(result.error || '更新失敗')
@@ -130,7 +130,7 @@ export default function StyleSwipeClient({
       >
         <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>🛍</div>
         <p style={{ color: '#333', fontSize: '0.95rem', fontWeight: 700, marginBottom: 8 }}>
-          嗜好スワイプは準備中です
+          好みスワイプは準備中です
         </p>
         <p style={{ fontSize: '0.8rem', marginBottom: 16, color: '#888' }}>
           楽天 / Yahoo!ショッピング API が未連携のため、
@@ -198,7 +198,7 @@ export default function StyleSwipeClient({
               marginTop: 12,
             }}
           >
-            {refreshing ? '分析中…' : hasProfile ? '嗜好を更新' : 'AI に嗜好を分析させる'}
+            {refreshing ? '分析中…' : hasProfile ? '好みを更新' : 'AI に好みを分析させる'}
           </button>
         )}
         {refreshMsg && (

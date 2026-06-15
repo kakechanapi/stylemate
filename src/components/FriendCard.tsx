@@ -271,7 +271,7 @@ export default function FriendCard({ friend }: { friend: Friend | FriendWithMeta
                   gap: 4,
                   alignItems: 'center',
                 }}
-                title="前回会った時に着てた服（被り回避の参考に）"
+                title="前回会った時に着てた服（服かぶり防止の参考に）"
               >
                 <span style={{ fontSize: '0.62rem', color: '#bbb', marginRight: 2 }}>
                   前回:

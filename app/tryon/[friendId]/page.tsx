@@ -35,7 +35,7 @@ export default async function TryonSelectPage({
           ‹
         </Link>
         <h1 style={{ fontSize: '1rem', fontWeight: 700, color: '#333', marginLeft: 14 }}>
-          {friend.name} に試着させる
+          {friend.name} にオンライン試着
         </h1>
       </header>
 
@@ -48,10 +48,10 @@ export default async function TryonSelectPage({
           <div style={{ textAlign: 'center', padding: '48px 24px' }}>
             <div style={{ fontSize: '3rem', marginBottom: 12 }}>👗</div>
             <p style={{ color: '#999', fontSize: '0.85rem', marginBottom: 4 }}>
-              試着できる服がありません
+              オンライン試着できる服がありません
             </p>
             <p style={{ color: '#bbb', fontSize: '0.72rem', marginBottom: 20 }}>
-              ※ 試着には画像つきの服が必要です
+              ※ オンライン試着には画像つきの服が必要です
             </p>
             <Link
               href="/register"

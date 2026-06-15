@@ -52,9 +52,9 @@ export default async function CapWarningBanner() {
         />
       </div>
       {isBlocked ? (
-        <>試着・本人モード訓練は来月までお待ちください。コーデ提案は引き続きご利用いただけます。</>
+        <>オンライン試着は来月までお待ちください。コーデ提案は引き続きご利用いただけます。</>
       ) : (
-        <>残り {status.remaining.toLocaleString()}円分です。試着・本人モード訓練の利用にご注意ください。</>
+        <>残り {status.remaining.toLocaleString()}円分です。オンライン試着のご利用にご注意ください。</>
       )}
     </div>
   )

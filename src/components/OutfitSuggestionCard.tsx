@@ -386,7 +386,7 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
       >
         <div style={{ fontSize: '3rem', marginBottom: 12 }}>✨</div>
         <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: 16 }}>
-          AI が今日の天気・TPO から最適なコーデを提案します
+          AI が今日の天気・シーンから最適なコーデを提案します
         </p>
         <button
           onClick={() => fetchSuggestion()}

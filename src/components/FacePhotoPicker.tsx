@@ -96,12 +96,12 @@ const FacePhotoPicker = forwardRef<FacePhotoPickerHandle, Props>(function FacePh
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="w-4 h-4 text-terracotta" strokeWidth={2.2} />
           <span className="text-[12px] font-bold text-terracotta tracking-wider">
-            本人モード（精度UP）
+            よりリアルにオンライン試着
           </span>
         </div>
         <p className="text-[11px] text-ink-soft leading-relaxed mb-2">
           複数枚の写真があると AI がその人を正確に学習し、
-          <b className="text-ink">本人そっくり</b>の試着・動画が作れます。
+          <b className="text-ink">自分そっくり</b>にオンライン試着できます。
         </p>
         <ul className="text-[11px] text-ink-soft leading-relaxed space-y-0.5">
           <li>・ <b className="text-ink">5〜20枚</b>あると効果大</li>

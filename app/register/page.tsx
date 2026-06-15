@@ -776,7 +776,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
-                TPOタグ（複数選択可）
+                シーンタグ（複数選択可）
                 {autoFilled.tpo && <AutoBadge />}
               </label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
