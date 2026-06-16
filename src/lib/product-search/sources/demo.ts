@@ -3,7 +3,7 @@
 // 本番では実 API ソースが available になるとこちらはスキップされる。
 
 import type { ProductSearchResult } from '@/types/fashion'
-import type { ProductSource } from '../types'
+import type { ProductSource, SourceSearchOptions } from '../types'
 
 interface DemoItem {
   name: string
@@ -108,7 +108,8 @@ export const demoSource: ProductSource = {
     if (process.env.NODE_ENV !== 'production') return true
     return process.env.ENABLE_DEMO_SEARCH === 'true'
   },
-  async search(keyword: string, limit = 10): Promise<ProductSearchResult[]> {
+  async search(keyword: string, opts: SourceSearchOptions = {}): Promise<ProductSearchResult[]> {
+    const { limit = 10 } = opts
     const kw = keyword.trim()
     // キーワードに一致するもの優先 → 足りなければシャッフル補完
     const matched = kw ? DEMO_ITEMS.filter((it) => matches(it, kw)) : []

@@ -6,9 +6,14 @@
 // - APIキーは Yahoo! Developer Network で即時発行（Gmail で取れる）
 
 import type { ProductSearchResult } from '@/types/fashion'
-import type { ProductSource } from '../types'
+import type { ProductSource, SourceSearchOptions } from '../types'
 
 const ENDPOINT = 'https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch'
+
+// Yahoo!ショッピング ジャンル ID
+// - 13457: ファッション全体（レディース・メンズ混在）
+// 将来的に女性/男性のサブカテゴリ ID が分かれば差し替え可
+const GENRE_FASHION = '13457'
 
 export const yahooSource: ProductSource = {
   id: 'yahoo',
@@ -16,7 +21,8 @@ export const yahooSource: ProductSource = {
   available(): boolean {
     return !!process.env.YAHOO_SHOPPING_APP_ID
   },
-  async search(keyword: string, limit = 20): Promise<ProductSearchResult[]> {
+  async search(keyword: string, opts: SourceSearchOptions = {}): Promise<ProductSearchResult[]> {
+    const { limit = 20 } = opts
     const appId = process.env.YAHOO_SHOPPING_APP_ID
     if (!appId) return []
     try {
@@ -26,9 +32,8 @@ export const yahooSource: ProductSource = {
         results: String(Math.min(50, Math.max(1, limit))),
         in_stock: 'true',
         image_size: '300',
-        // ファッションカテゴリに絞る（13457 = ファッション）
-        // 絞り過ぎリスクも考慮、必要に応じて外せる
-        genre_category_id: '13457',
+        // ファッションに絞る（カーテン・家具等の混入を防ぐ）
+        genre_category_id: GENRE_FASHION,
         sort: '-review_count',
       })
       const res = await fetch(`${ENDPOINT}?${params}`, { cache: 'no-store' })

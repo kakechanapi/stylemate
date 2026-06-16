@@ -13,6 +13,7 @@ import { rakutenSource } from './sources/rakuten'
 import { yahooSource } from './sources/yahoo'
 import { demoSource } from './sources/demo'
 import { dedupe, sortByRelevance } from './rank'
+import { filterClothingOnly } from './filter'
 
 // 登録されているソース（追加するときはここに足す）
 const SOURCES: ProductSource[] = [yahooSource, rakutenSource, demoSource]
@@ -33,13 +34,14 @@ export async function searchProducts(
   const perSourceLimit = opts.perSourceLimit ?? 20
   const totalLimit = opts.totalLimit ?? 20
   const timeoutMs = opts.timeoutMs ?? 3000
+  const gender = opts.gender
 
   const liveSources = SOURCES.filter((s) => s.available())
 
   // 各ソースをタイムアウト付き並列実行
   const promises = liveSources.map((s) =>
     Promise.race([
-      s.search(kw, perSourceLimit).then((items) => ({ id: s.id, items })),
+      s.search(kw, { limit: perSourceLimit, gender }).then((items) => ({ id: s.id, items })),
       new Promise<{ id: string; items: ProductSearchResult[] }>((resolve) =>
         setTimeout(() => resolve({ id: s.id, items: [] }), timeoutMs)
       ),
@@ -65,8 +67,12 @@ export async function searchProducts(
   const hasRealResults = usedSources.some((id) => id !== 'demo')
   const filtered = hasRealResults ? merged.filter((it) => it.source !== 'demo') : merged
 
+  // 「服じゃない」明らかなノイズを除去（カーテン・寝具・食器等）
+  // ジャンル絞りでも稀に混じるため、商品名ベースの最終ガード
+  const clothingOnly = filterClothingOnly(filtered)
+
   // 重複排除 → スコア順 → 上位 N
-  const deduped = dedupe(filtered)
+  const deduped = dedupe(clothingOnly)
   const sorted = sortByRelevance(deduped, kw)
   const finalSources = hasRealResults ? usedSources.filter((id) => id !== 'demo') : usedSources
   return {
@@ -78,7 +84,10 @@ export async function searchProducts(
 
 // 旧 lib/rakuten.ts との後方互換のためのラッパー
 // 既存呼び出し（lib/rakuten.ts:searchRakutenFashion）が動くまま新基盤に乗せる
-export async function searchRakutenFashion(keyword: string): Promise<ProductSearchResult[]> {
-  const { items } = await searchProducts(keyword)
+export async function searchRakutenFashion(
+  keyword: string,
+  opts: { gender?: SearchOptions['gender'] } = {}
+): Promise<ProductSearchResult[]> {
+  const { items } = await searchProducts(keyword, { gender: opts.gender })
   return items
 }

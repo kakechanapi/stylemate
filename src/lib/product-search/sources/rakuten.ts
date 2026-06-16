@@ -10,10 +10,17 @@
 //   - RAKUTEN_ACCESS_KEY     : pk_... 形式（同管理画面、👁アイコンで表示）
 
 import type { ProductSearchResult } from '@/types/fashion'
-import type { ProductSource } from '../types'
+import type { ProductSource, SourceSearchOptions } from '../types'
 
 const ENDPOINT =
   'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401'
+
+// 楽天市場のファッション系ジャンル ID
+// - 100371: レディースファッション
+// - 551177: メンズファッション
+// 親ジャンルで絞ることでカーテン・寝具・食器等が混ざるのを防ぐ。
+const GENRE_FEMALE = '100371'
+const GENRE_MALE = '551177'
 
 export const rakutenSource: ProductSource = {
   id: 'rakuten',
@@ -21,7 +28,8 @@ export const rakutenSource: ProductSource = {
   available(): boolean {
     return !!(process.env.RAKUTEN_APPLICATION_ID && process.env.RAKUTEN_ACCESS_KEY)
   },
-  async search(keyword: string, limit = 20): Promise<ProductSearchResult[]> {
+  async search(keyword: string, opts: SourceSearchOptions = {}): Promise<ProductSearchResult[]> {
+    const { limit = 20, gender } = opts
     const applicationId = process.env.RAKUTEN_APPLICATION_ID
     const accessKey = process.env.RAKUTEN_ACCESS_KEY
     if (!applicationId || !accessKey) return []
@@ -33,9 +41,13 @@ export const rakutenSource: ProductSource = {
         hits: String(Math.min(30, Math.max(1, limit))),
         imageFlag: '1',
         sort: '-reviewCount',
-        // ファッション系ジャンル: 100371 (レディース) / 551177 (メンズ)
-        // 絞ると外れるリスクもあるので、ここではあえて指定しない
       })
+      // 性別に応じてジャンルを絞る
+      // - female → レディース
+      // - male   → メンズ
+      // - 指定なし → 絞らない（広く取る）
+      if (gender === 'female') params.set('genreId', GENRE_FEMALE)
+      else if (gender === 'male') params.set('genreId', GENRE_MALE)
       // アフィリエイトID（任意）：あればクリック報酬対象に
       const affiliateId = process.env.NEXT_PUBLIC_RAKUTEN_AFFILIATE_ID
       if (affiliateId) params.set('affiliateId', affiliateId)
