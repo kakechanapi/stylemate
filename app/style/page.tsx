@@ -91,7 +91,7 @@ export default async function StylePage() {
               lineHeight: 1.6,
             }}
           >
-            👉 服をスワイプしていくと、5・10・20・40…の節目で AI が自動的にあなたの好み（テイスト）を分析します。
+            👉 服をスワイプしていくと、3回スワイプするごとに AI が裏で自動的に好み（テイスト）を分析します。
             分析結果はコーデ提案に自動反映されます。
           </div>
         )}
@@ -104,7 +104,11 @@ export default async function StylePage() {
         </div>
 
         {/* スワイプ本体 */}
-        <StyleSwipeClient initialLikedCount={likedCount} hasProfile={!!profile} />
+        <StyleSwipeClient
+          initialLikedCount={likedCount}
+          initialNopeCount={dislikedCount}
+          hasProfile={!!profile}
+        />
       </div>
     </div>
   )

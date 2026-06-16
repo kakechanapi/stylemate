@@ -12,16 +12,20 @@ interface Item {
 
 const SWIPE_THRESHOLD = 120 // 横方向ドラッグでこの値を超えたら確定
 
-// 自動学習が発火する LIKE 数の節目
-// 5 → 10 → 20 → 40 → 60 → ... （倍々ではなく節目方式）
-// 序盤は細かく学習、後半は重複発火を避けるため間隔を広げる
-const AUTO_LEARN_AT = new Set([5, 10, 20, 40, 60, 80, 100, 150, 200])
+// 自動学習が発火するタイミング
+// - LIKE + NOPE 合計が「LEARN_EVERY の倍数」になったとき発火
+// - ただし LIKE が MIN_LIKED_TO_LEARN 件以上ないと
+//   分析できない（style.ts 側でガード）ので、それまでは発火しない
+const LEARN_EVERY = 3
+const MIN_LIKED_TO_LEARN = 5
 
 export default function StyleSwipeClient({
   initialLikedCount,
+  initialNopeCount,
   hasProfile,
 }: {
   initialLikedCount: number
+  initialNopeCount: number
   hasProfile: boolean
 }) {
   const router = useRouter()
@@ -29,11 +33,12 @@ export default function StyleSwipeClient({
   const [loading, setLoading] = useState(true)
   const [index, setIndex] = useState(0)
   const [likedCount, setLikedCount] = useState(initialLikedCount)
+  const [nopeCount, setNopeCount] = useState(initialNopeCount)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshMsg, setRefreshMsg] = useState('')
   // 自動学習が走った直後に表示する小さなトースト
   const [autoLearnedMsg, setAutoLearnedMsg] = useState('')
-  // 同じ likedCount で連続発火しないようガード
+  // 同じ合計件数で連続発火しないようガード
   const autoLearnFiredFor = useRef<Set<number>>(new Set())
   const [, startTransition] = useTransition()
 
@@ -65,26 +70,36 @@ export default function StyleSwipeClient({
   const recordCurrent = (liked: boolean) => {
     if (!current) return
     const item = current
-    if (liked) {
-      const nextLiked = likedCount + 1
-      setLikedCount(nextLiked)
-      // 節目で自動学習を発火（裏で実行・UI はブロックしない）
-      if (AUTO_LEARN_AT.has(nextLiked) && !autoLearnFiredFor.current.has(nextLiked)) {
-        autoLearnFiredFor.current.add(nextLiked)
-        // 即時 setTimeout で確実にレンダリング完了後に発火
-        setTimeout(() => {
-          void (async () => {
-            const result = await refreshStyleProfileAction()
-            if (result.ok) {
-              setAutoLearnedMsg(`✨ ${nextLiked}件の好みから AI が分析を更新しました`)
-              // 3秒で自動消去
-              setTimeout(() => setAutoLearnedMsg(''), 3000)
-              router.refresh()
-            }
-          })()
-        }, 0)
-      }
+    // LIKE / NOPE どちらでもカウンタを更新
+    const nextLiked = liked ? likedCount + 1 : likedCount
+    const nextNope = liked ? nopeCount : nopeCount + 1
+    if (liked) setLikedCount(nextLiked)
+    else setNopeCount(nextNope)
+
+    // 自動学習の発火判定
+    // - LIKE が 5 件以上（分析に必要な最低数）
+    // - LIKE + NOPE の合計が 3 の倍数
+    // - 同じ件数で多重発火しない
+    const nextTotal = nextLiked + nextNope
+    const shouldLearn =
+      nextLiked >= MIN_LIKED_TO_LEARN &&
+      nextTotal % LEARN_EVERY === 0 &&
+      !autoLearnFiredFor.current.has(nextTotal)
+    if (shouldLearn) {
+      autoLearnFiredFor.current.add(nextTotal)
+      // 裏で発火・UI はブロックしない
+      setTimeout(() => {
+        void (async () => {
+          const result = await refreshStyleProfileAction()
+          if (result.ok) {
+            setAutoLearnedMsg(`✨ ${nextLiked}件の好みから AI が分析を更新しました`)
+            setTimeout(() => setAutoLearnedMsg(''), 3000)
+            router.refresh()
+          }
+        })()
+      }, 0)
     }
+
     startTransition(async () => {
       await recordSwipeAction({
         image_url: item.imageUrl,
@@ -94,6 +109,17 @@ export default function StyleSwipeClient({
         source: 'rakuten',
       })
     })
+  }
+
+  /** 次の AI 学習までの残り回数を文言で返す */
+  const learnHintText = (): string => {
+    if (likedCount < MIN_LIKED_TO_LEARN) {
+      const remain = MIN_LIKED_TO_LEARN - likedCount
+      return `LIKE をあと ${remain} 回で AI 学習スタート`
+    }
+    const total = likedCount + nopeCount
+    const remain = LEARN_EVERY - (total % LEARN_EVERY || LEARN_EVERY)
+    return `あと ${remain} 回スワイプで AI が好みを更新`
   }
 
   const advance = (liked: boolean) => {
@@ -409,6 +435,21 @@ export default function StyleSwipeClient({
       <p style={{ fontSize: '0.72rem', color: '#bbb', marginTop: 16 }}>
         {index + 1} / {items.length}　·　← 左でNOPE　/　右で LIKE →
       </p>
+
+      {/* 自動学習のカウントダウン */}
+      <div
+        style={{
+          marginTop: 8,
+          fontSize: '0.7rem',
+          color: '#C4779B',
+          background: '#FFF0F6',
+          padding: '4px 12px',
+          borderRadius: 12,
+          fontWeight: 700,
+        }}
+      >
+        🧠 {learnHintText()}
+      </div>
 
       {/* 自動学習が走ったときのトースト */}
       {autoLearnedMsg && (

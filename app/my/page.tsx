@@ -27,6 +27,22 @@ function formatBirthday(bday?: string): string {
   return `🎂 ${parseInt(m, 10)}/${parseInt(d, 10)}`
 }
 
+/** ISO 文字列を「2分前」「3時間前」「2日前」等の相対表記に */
+function formatRelative(iso?: string | null): string {
+  if (!iso) return ''
+  const diffMs = Date.now() - new Date(iso).getTime()
+  if (diffMs < 0) return 'たった今'
+  const min = Math.floor(diffMs / 60_000)
+  if (min < 1) return 'たった今'
+  if (min < 60) return `${min}分前`
+  const hour = Math.floor(min / 60)
+  if (hour < 24) return `${hour}時間前`
+  const day = Math.floor(hour / 24)
+  if (day < 30) return `${day}日前`
+  const month = Math.floor(day / 30)
+  return `${month}ヶ月前`
+}
+
 export default async function MyPage() {
   const supabase = await createSupabaseServerClient()
 
@@ -263,6 +279,18 @@ export default async function MyPage() {
           )}
           <span style={{ marginLeft: 'auto', color: '#bbb', fontSize: '1rem' }}>›</span>
         </div>
+        {/* AI 学習の最終更新時刻 */}
+        {styleProfile?.updated_at && (
+          <div
+            style={{
+              fontSize: '0.66rem',
+              color: '#999',
+              marginBottom: 6,
+            }}
+          >
+            🧠 最終更新：{formatRelative(styleProfile.updated_at)}
+          </div>
+        )}
         {styleProfile && styleProfile.tags.length > 0 ? (
           <>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
