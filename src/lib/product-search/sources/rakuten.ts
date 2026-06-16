@@ -22,6 +22,23 @@ const ENDPOINT =
 const GENRE_FEMALE = '100371'
 const GENRE_MALE = '551177'
 
+/**
+ * 楽天サムネ URL を高解像度化。
+ * 楽天は `?_ex=128x128` のような小サイズ指定が末尾に入っている。
+ * これを大きいサイズに置換すると、同じ画像の高解像度版が返る。
+ *
+ * 例：
+ *   入力: https://thumbnail.image.rakuten.co.jp/.../item.jpg?_ex=128x128
+ *   出力: https://thumbnail.image.rakuten.co.jp/.../item.jpg?_ex=640x640
+ *
+ * `_ex` パラメータがない URL（直接配信形式）はそのまま返す。
+ */
+function upscaleRakutenImage(url: string): string {
+  if (!url) return url
+  // _ex=XxY を 640x640 に書き換える
+  return url.replace(/_ex=\d+x\d+/i, '_ex=640x640')
+}
+
 export const rakutenSource: ProductSource = {
   id: 'rakuten',
   label: '楽天市場',
@@ -68,7 +85,9 @@ export const rakutenSource: ProductSource = {
       return data.Items.map((item: any): ProductSearchResult => ({
         name: item.Item.itemName,
         brand: item.Item.shopName,
-        imageUrl: item.Item.mediumImageUrls?.[0]?.imageUrl || '',
+        // mediumImageUrls はデフォルトで _ex=128x128（小さい）。
+        // upscaleRakutenImage で 640x640 に書き換えて高画質化。
+        imageUrl: upscaleRakutenImage(item.Item.mediumImageUrls?.[0]?.imageUrl || ''),
         productUrl: item.Item.itemUrl,
         price: item.Item.itemPrice,
         itemCode: item.Item.itemCode,

@@ -12,6 +12,11 @@ interface Item {
 
 const SWIPE_THRESHOLD = 120 // 横方向ドラッグでこの値を超えたら確定
 
+// 自動学習が発火する LIKE 数の節目
+// 5 → 10 → 20 → 40 → 60 → ... （倍々ではなく節目方式）
+// 序盤は細かく学習、後半は重複発火を避けるため間隔を広げる
+const AUTO_LEARN_AT = new Set([5, 10, 20, 40, 60, 80, 100, 150, 200])
+
 export default function StyleSwipeClient({
   initialLikedCount,
   hasProfile,
@@ -26,6 +31,10 @@ export default function StyleSwipeClient({
   const [likedCount, setLikedCount] = useState(initialLikedCount)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshMsg, setRefreshMsg] = useState('')
+  // 自動学習が走った直後に表示する小さなトースト
+  const [autoLearnedMsg, setAutoLearnedMsg] = useState('')
+  // 同じ likedCount で連続発火しないようガード
+  const autoLearnFiredFor = useRef<Set<number>>(new Set())
   const [, startTransition] = useTransition()
 
   // drag 状態
@@ -56,7 +65,26 @@ export default function StyleSwipeClient({
   const recordCurrent = (liked: boolean) => {
     if (!current) return
     const item = current
-    if (liked) setLikedCount((c) => c + 1)
+    if (liked) {
+      const nextLiked = likedCount + 1
+      setLikedCount(nextLiked)
+      // 節目で自動学習を発火（裏で実行・UI はブロックしない）
+      if (AUTO_LEARN_AT.has(nextLiked) && !autoLearnFiredFor.current.has(nextLiked)) {
+        autoLearnFiredFor.current.add(nextLiked)
+        // 即時 setTimeout で確実にレンダリング完了後に発火
+        setTimeout(() => {
+          void (async () => {
+            const result = await refreshStyleProfileAction()
+            if (result.ok) {
+              setAutoLearnedMsg(`✨ ${nextLiked}件の好みから AI が分析を更新しました`)
+              // 3秒で自動消去
+              setTimeout(() => setAutoLearnedMsg(''), 3000)
+              router.refresh()
+            }
+          })()
+        }, 0)
+      }
+    }
     startTransition(async () => {
       await recordSwipeAction({
         image_url: item.imageUrl,
@@ -198,7 +226,7 @@ export default function StyleSwipeClient({
               marginTop: 12,
             }}
           >
-            {refreshing ? '分析中…' : hasProfile ? '好みを更新' : 'AI に好みを分析させる'}
+            {refreshing ? '分析中…' : hasProfile ? '今すぐ好みを再分析' : 'AI に好みを分析させる'}
           </button>
         )}
         {refreshMsg && (
@@ -381,6 +409,31 @@ export default function StyleSwipeClient({
       <p style={{ fontSize: '0.72rem', color: '#bbb', marginTop: 16 }}>
         {index + 1} / {items.length}　·　← 左でNOPE　/　右で LIKE →
       </p>
+
+      {/* 自動学習が走ったときのトースト */}
+      {autoLearnedMsg && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 100,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'linear-gradient(135deg, #34D399, #10B981)',
+            color: '#fff',
+            padding: '10px 18px',
+            borderRadius: 24,
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            boxShadow: '0 4px 14px rgba(52,211,153,0.4)',
+            zIndex: 100,
+            maxWidth: '90%',
+            textAlign: 'center',
+            animation: 'fadeInUp 0.3s ease-out',
+          }}
+        >
+          {autoLearnedMsg}
+        </div>
+      )}
     </div>
   )
 }
