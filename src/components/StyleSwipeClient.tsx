@@ -16,7 +16,12 @@ const SWIPE_THRESHOLD = 120 // 横方向ドラッグでこの値を超えたら�
 // - LIKE + NOPE 合計が「LEARN_EVERY の倍数」になったとき発火
 // - ただし LIKE が MIN_LIKED_TO_LEARN 件以上ないと
 //   分析できない（style.ts 側でガード）ので、それまでは発火しない
-const LEARN_EVERY = 3
+//
+// LEARN_EVERY=5 にしている理由：
+// - 3 にしたら本番で負荷感が出た。Gemini 呼び出し自体は裏で走るが、
+//   学習成功後の router.refresh() がサーバー再レンダリングを誘発して重かった。
+// - router.refresh() は撤去済み。頻度は 5 に下げて安全マージン
+const LEARN_EVERY = 5
 const MIN_LIKED_TO_LEARN = 5
 
 export default function StyleSwipeClient({
@@ -88,13 +93,15 @@ export default function StyleSwipeClient({
     if (shouldLearn) {
       autoLearnFiredFor.current.add(nextTotal)
       // 裏で発火・UI はブロックしない
+      // 注：以前は完了時に router.refresh() でサーバー再レンダリングしていたが、
+      //     スワイプ画面が重くなる原因だったので撤去。
+      //     最新の好みは次にマイページを開いたとき自動的に見える。
       setTimeout(() => {
         void (async () => {
           const result = await refreshStyleProfileAction()
           if (result.ok) {
             setAutoLearnedMsg(`✨ ${nextLiked}件の好みから AI が分析を更新しました`)
             setTimeout(() => setAutoLearnedMsg(''), 3000)
-            router.refresh()
           }
         })()
       }, 0)
