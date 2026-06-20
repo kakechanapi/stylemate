@@ -14,6 +14,8 @@ interface OutfitSuggestion {
   items: string[]
   itemIds: string[]
   layerHint?: string
+  /** クローゼットに足りないカテゴリ（UI で「登録すると幅が広がる」ガイド表示用） */
+  missingCategories?: string[]
 }
 
 type ItemStatus = 'pending' | 'fixed' | 'rejected'
@@ -516,6 +518,42 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
           </p>
         )}
       </div>
+
+      {/* クローゼットの不足カテゴリ案内（提案が薄かった本質的な原因の可視化） */}
+      {suggestion?.missingCategories && suggestion.missingCategories.length > 0 && (
+        <div
+          style={{
+            background: '#FFF8E1',
+            border: '1px solid #FFE082',
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#B38600', marginBottom: 4 }}>
+            💡 もっと豊かなコーデにするには
+          </div>
+          <p style={{ fontSize: '0.72rem', color: '#7B5B00', lineHeight: 1.6, margin: 0, marginBottom: 8 }}>
+            <b>{suggestion.missingCategories.join('・')}</b>がクローゼットに未登録です。登録するとコーデの幅が広がります。
+          </p>
+          <a
+            href="/register"
+            style={{
+              display: 'inline-block',
+              background: '#fff',
+              border: '1.5px solid #FFC107',
+              color: '#B38600',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              padding: '4px 12px',
+              borderRadius: 12,
+              textDecoration: 'none',
+            }}
+          >
+            + 服を登録する
+          </a>
+        </div>
+      )}
 
       {/* アクションボタン */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

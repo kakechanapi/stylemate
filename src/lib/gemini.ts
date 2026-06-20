@@ -14,6 +14,40 @@ export interface OutfitSuggestion {
   items: string[] // クローゼットアイテム名（人間が読む用）
   itemIds: string[] // クローゼットアイテムID（リンク用）
   layerHint?: string // 中身レイヤー提案（任意）
+  /**
+   * クローゼットに足りないカテゴリ（UI でガイド表示用）
+   * 例：['ボトムス', '羽織り'] → 登録を促す
+   */
+  missingCategories?: string[]
+}
+
+/** カテゴリ ID と日本語ラベルのマッピング */
+const CATEGORY_LABEL: Record<string, string> = {
+  tops: 'トップス',
+  bottoms: 'ボトムス',
+  outerwear: '羽織り・アウター',
+  dress: 'ワンピース',
+  shoes: '靴',
+  bag: 'バッグ',
+  accessory: 'アクセサリー',
+  other: 'その他',
+}
+
+/**
+ * クローゼットのカテゴリ別所有数を集計
+ * 提案 AI には「無理な提案を避ける」用に渡し、UI には「足りないカテゴリ」用に渡す
+ */
+function summarizeCloset(clothes: ClothingItem[]) {
+  const counts: Record<string, number> = {}
+  for (const c of clothes) {
+    counts[c.category] = (counts[c.category] || 0) + 1
+  }
+  // 「コーデの根幹」に当たるカテゴリで 0 件なら、UI に登録を促す
+  const ESSENTIAL = ['tops', 'bottoms', 'outerwear', 'dress']
+  const missingCategories = ESSENTIAL
+    .filter((cat) => !counts[cat])
+    .map((cat) => CATEGORY_LABEL[cat])
+  return { counts, missingCategories }
 }
 
 export interface SuggestionContext {
@@ -100,6 +134,18 @@ export async function generateOutfitSuggestion(
     )
     .join('\n')
 
+  // クローゼット全体の所有数。
+  // AI が「ボトムスが 0 件だから無理して提案しない」を判断できるよう、明示的に渡す
+  const { counts, missingCategories } = summarizeCloset(clothes)
+  const closetStatsText = Object.keys(counts).length > 0
+    ? `\n【クローゼットのカテゴリ別所有数】\n${Object.entries(counts)
+        .map(([cat, n]) => `- ${CATEGORY_LABEL[cat] || cat}: ${n}点`)
+        .join('\n')}`
+    : ''
+  const missingHintText = missingCategories.length > 0
+    ? `\n【未登録カテゴリ】${missingCategories.join('・')}（0件のカテゴリは itemIds に含めようがないので、無理に言及しないこと）`
+    : ''
+
   const prompt = `あなたは経験豊富な日本のファッションスタイリストです。以下の条件に基づき、ユーザーの所有服から最適なコーディネートを提案してください。
 
 【入力情報】
@@ -107,7 +153,7 @@ ${weatherText}
 TPO: ${tpoLabels[context.tpo]}${meText}${scheduleText}${styleText}${recentText}${fixedText}${excludedText}
 
 【ユーザーの所有服一覧】
-${clothesSummary || '（まだ服が登録されていません）'}
+${clothesSummary || '（まだ服が登録されていません）'}${closetStatsText}${missingHintText}
 
 【コーデの構成パターン】
 以下のいずれか1つを選び、それに沿って itemIds を組み立ててください：
@@ -127,11 +173,15 @@ ${clothesSummary || '（まだ服が登録されていません）'}
   - 任意で追加：インナー／靴／バッグ
 
 【最重要ルール】
-1. 【構成数の下限】itemIds は必ず **2 アイテム以上**。例外はパターンA でワンピース単体のときのみ 1 アイテム可
-2. 【lazy 禁止】「トップス + 同じくトップス」のような同カテゴリ2枚だけで完結させない。クローゼットにボトムスがあるなら必ず1点入れる
-3. 【中身レイヤーの一貫性】"layerHint" で言及するアイテム（例：「中にヒートテック」）も必ず itemIds に含める。"layerHint" と "itemIds" が乖離してはいけない
-4. 【羽織りの積極活用】カーディガン・ジャケット・コート等の羽織りがクローゼットにあって気温・TPO に合うなら、積極的に入れる
-5. 【却下指定の尊重】「絶対に使わない服ID」があれば、その代替（同じカテゴリの別アイテム）を必ず別途入れる。アイテム数を減らさない
+1. 【実在縛り】itemIds に入れるのは、必ず「ユーザーの所有服一覧」にある id だけ。存在しないアイテムを itemIds に含めない
+2. 【未登録カテゴリは諦める】「未登録カテゴリ」にあるカテゴリ（例：ボトムス 0件）は提案に含めようがない。
+   この場合は無理に B パターンを選ばず、A パターン（ワンピ単体）または「トップスのみ + 羽織り」で完結させる。
+   ただし suggestion 文に「お持ちのボトムスと…」のような実在しないアイテムへの言及はしない
+3. 【構成数の下限】itemIds は基本 2 アイテム以上を目指す。クローゼットが極端に少ない場合は 1 アイテムでも可
+4. 【lazy 禁止】「トップス + 同じくトップス」のような同カテゴリ2枚だけで完結させない。クローゼットにボトムスがあるなら必ず1点入れる
+5. 【中身レイヤーの一貫性】"layerHint" で言及するアイテム（例：「中にヒートテック」）も必ず itemIds に含める。"layerHint" と "itemIds" が乖離してはいけない
+6. 【羽織りの積極活用】カーディガン・ジャケット・コート等の羽織りがクローゼットにあって気温・TPO に合うなら、積極的に入れる
+7. 【却下指定の尊重】「絶対に使わない服ID」があれば、その代替（同じカテゴリの別アイテム）を必ず別途入れる。アイテム数を減らさない
 
 【気温別レイヤー】
    - 服装指数 80以上 / 28℃以上: 羽織りなし、涼しい素材
@@ -177,6 +227,7 @@ ${clothesSummary || '（まだ服が登録されていません）'}
         items: Array.isArray(parsed.items) ? parsed.items : [],
         itemIds: Array.isArray(parsed.itemIds) ? parsed.itemIds : [],
         layerHint: parsed.layerHint || undefined,
+        missingCategories,
       }
     }
   } catch (e) {
@@ -191,6 +242,7 @@ ${clothesSummary || '（まだ服が登録されていません）'}
     reason: '',
     items: [],
     itemIds: [],
+    missingCategories,
   }
 }
 
