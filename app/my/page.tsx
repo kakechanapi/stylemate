@@ -451,10 +451,27 @@ export default async function MyPage() {
                 color: '#333',
                 textDecoration: 'none',
                 fontSize: '0.95rem',
+                borderBottom: '1px solid #F5C6D8',
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>💰</span>
               <span style={{ flex: 1 }}>コストダッシュボード</span>
+              <span style={{ color: '#bbb' }}>›</span>
+            </Link>
+            <Link
+              href="/admin/seed-closet"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '14px 16px',
+                color: '#333',
+                textDecoration: 'none',
+                fontSize: '0.95rem',
+              }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>🌱</span>
+              <span style={{ flex: 1 }}>サンプル50着投入（検証用）</span>
               <span style={{ color: '#bbb' }}>›</span>
             </Link>
           </div>
