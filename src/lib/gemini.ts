@@ -149,13 +149,16 @@ export async function generateOutfitSuggestion(
   clothes: ClothingItem[],
   context: SuggestionContext
 ): Promise<OutfitSuggestionsResult> {
+  // シーン別の文脈付きラベル
+  // AI が「単なるカジュアル」ではなく「友達と気楽な日」のような空気感を理解できるよう、
+  // 表面ラベル + どんな日かのニュアンスを併記する。
   const tpoLabels: Record<TPO, string> = {
-    casual: 'カジュアル',
-    date: 'デート',
-    work: '仕事・会議',
-    party: 'パーティー',
-    sport: 'スポーツ・アウトドア',
-    formal: 'フォーマル',
+    casual: 'プライベート（友達とカフェ・休日のおでかけ等、ふだん使い。気楽さ＋自分らしさを優先）',
+    date: 'デート（好印象を狙いたい日。きれいめ寄り、相手に「素敵だな」と思われる装い）',
+    work: '仕事（職場・打ち合わせ。きちんと感、清潔感、TPOを外さない安定感）',
+    party: 'お祝い・パーティー（結婚式二次会・誕生日会・飲み会など華やかな場。少し背伸びしてもOK）',
+    sport: 'お出かけ・スポーツ（アクティブに動く日。動きやすさ＋それでも見栄えする工夫）',
+    formal: 'フォーマル（式典・葬儀・正装の場。失礼にならない・きちんとした装い）',
   }
 
   const w = context.weather

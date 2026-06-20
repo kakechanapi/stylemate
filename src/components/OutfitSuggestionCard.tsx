@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ClothingItem, Outfit } from '@/types/fashion'
+import { SCENE_LABEL } from './TPOSelector'
 import {
   recordOutfitSwipeAction,
   confirmTodayOutfitAction,
@@ -32,6 +33,8 @@ interface Props {
   onRefresh?: () => void
   // 今日確定済みのコーデ。あれば「確定済みビュー」を表示する。
   todayOutfit?: Outfit | null
+  // 表示用のシーン名（予定が選ばれていればその予定名、なければ TPO ラベルから自動算出）
+  sceneLabel?: string
 }
 
 // ドラフト（確定前の状態）を localStorage に保存するキー
@@ -51,7 +54,15 @@ function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfit }: Props) {
+export default function OutfitSuggestionCard({
+  clothes,
+  tpo,
+  eventId,
+  todayOutfit,
+  sceneLabel,
+}: Props) {
+  // 表示用シーン名：明示指定があればそれ優先、なければ TPO から
+  const displaySceneLabel = sceneLabel || SCENE_LABEL[tpo] || 'コーデ'
   const router = useRouter()
   // 3案を保持。selectedIndex が決まったら詳細モード、null なら3案リスト表示
   const [suggestions, setSuggestions] = useState<OutfitSuggestion[]>([])
@@ -439,8 +450,11 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
         }}
       >
         <div style={{ fontSize: '3rem', marginBottom: 12 }}>✨</div>
+        <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: 6 }}>
+          <b style={{ color: '#C4779B' }}>{displaySceneLabel}</b> 向けのコーデを
+        </p>
         <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: 16 }}>
-          AI が今日の天気・シーンから3案のコーデを提案します
+          AI が天気と相談しながら 3 案ご提案します
         </p>
         <button
           onClick={() => fetchSuggestion()}
@@ -456,7 +470,7 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
             cursor: 'pointer',
           }}
         >
-          コーデを提案してもらう
+          {displaySceneLabel} のコーデを提案してもらう
         </button>
       </div>
     )
@@ -472,6 +486,7 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
         onSelect={handleSelectSuggestion}
         onRefresh={() => fetchSuggestion()}
         missingCategories={missingCategories}
+        sceneLabel={displaySceneLabel}
       />
     )
   }
@@ -1012,12 +1027,14 @@ function SuggestionsListView({
   onSelect,
   onRefresh,
   missingCategories,
+  sceneLabel,
 }: {
   suggestions: OutfitSuggestion[]
   clothes: ClothingItem[]
   onSelect: (idx: number) => void
   onRefresh: () => void
   missingCategories: string[]
+  sceneLabel?: string
 }) {
   return (
     <div
@@ -1030,10 +1047,10 @@ function SuggestionsListView({
       }}
     >
       {/* ヘッダー */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: '1.2rem' }}>✨</span>
         <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#C4779B' }}>
-          今日のコーデ {suggestions.length}案
+          {sceneLabel ? `${sceneLabel} 向け` : '今日のコーデ'} {suggestions.length}案
         </span>
         <span
           style={{

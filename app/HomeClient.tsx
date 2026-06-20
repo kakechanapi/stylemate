@@ -145,9 +145,18 @@ export default function HomeClient({ clothes, userEmail, upcomingEvents, friendN
         </div>
       )}
 
-      {/* TPO（予定が選ばれてなければ手動選択） */}
+      {/* シーン選択（予定が選ばれてなければ手動選択） */}
       {!selectedEvent && (
-        <div style={{ marginBottom: 20 }}>
+        <div
+          style={{
+            marginBottom: 20,
+            background: '#fff',
+            border: '1px solid #FFE4F0',
+            borderRadius: 16,
+            padding: 14,
+            boxShadow: '0 2px 8px rgba(232,160,191,0.08)',
+          }}
+        >
           <TPOSelector selected={tpo} onChange={setTpo} />
         </div>
       )}
@@ -191,6 +200,7 @@ export default function HomeClient({ clothes, userEmail, upcomingEvents, friendN
           tpo={selectedEvent?.tpo || tpo}
           eventId={selectedEvent?.id}
           todayOutfit={todayOutfit}
+          sceneLabel={selectedEvent ? selectedEvent.title : undefined}
         />
       )}
 
