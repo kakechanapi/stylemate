@@ -50,6 +50,68 @@ function summarizeCloset(clothes: ClothingItem[]) {
   return { counts, missingCategories }
 }
 
+/**
+ * 画像 URL を取得して Gemini の inlineData Part に変換
+ * - 失敗・タイムアウト時は null を返す（テキスト情報だけで提案させる）
+ * - クローゼットが大きいときに全部失敗してもアプリは落ちない
+ */
+async function fetchImageAsPart(
+  url: string,
+  timeoutMs = 4000
+): Promise<{ inlineData: { data: string; mimeType: string } } | null> {
+  if (!url) return null
+  try {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), timeoutMs)
+    const res = await fetch(url, { signal: ctrl.signal })
+    clearTimeout(t)
+    if (!res.ok) return null
+    const mimeType = res.headers.get('content-type')?.split(';')[0] || 'image/jpeg'
+    // 画像のみ受け入れる（HTML エラーページ等を弾く）
+    if (!mimeType.startsWith('image/')) return null
+    const buf = await res.arrayBuffer()
+    // Base64 化
+    const data = Buffer.from(buf).toString('base64')
+    return { inlineData: { data, mimeType } }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * クローゼットの服画像を並列フェッチして Gemini に渡せる Parts に変換。
+ * - 各画像 4 秒タイムアウト
+ * - 成功した分だけ返す（取れなかったものはテキスト情報だけで AI が判断）
+ *
+ * 戻り値の vision には「画像が取得できた服の id 一覧」も含む。
+ * プロンプト側で「以下の N 枚の画像は順番に id1, id2, ... の服です」と
+ * 明示することで AI が画像とテキスト情報を紐付けて判断できる。
+ */
+async function buildVisionParts(
+  clothes: ClothingItem[],
+  maxImages = 12
+) {
+  // 画像が無い服はスキップ
+  const withImage = clothes.filter((c) => c.image_url)
+  // 多すぎる場合は最初の N 件だけ（コスト・レイテンシ対策）
+  const slice = withImage.slice(0, maxImages)
+  const results = await Promise.all(
+    slice.map(async (c) => ({
+      cloth: c,
+      part: await fetchImageAsPart(c.image_url || ''),
+    }))
+  )
+  const parts: Array<{ inlineData: { data: string; mimeType: string } }> = []
+  const ids: string[] = []
+  for (const r of results) {
+    if (r.part) {
+      parts.push(r.part)
+      ids.push(r.cloth.id)
+    }
+  }
+  return { parts, ids }
+}
+
 export interface SuggestionContext {
   weather: WeatherData | null
   tpo: TPO
@@ -146,6 +208,13 @@ export async function generateOutfitSuggestion(
     ? `\n【未登録カテゴリ】${missingCategories.join('・')}（0件のカテゴリは itemIds に含めようがないので、無理に言及しないこと）`
     : ''
 
+  // Vision：画像つきの服をフェッチして AI に視覚的にも判断させる
+  // 失敗した画像はスキップ（テキスト情報だけで AI が判断）
+  const vision = await buildVisionParts(clothes, 12)
+  const visionText = vision.ids.length > 0
+    ? `\n【画像付き服】これ以降のメッセージに添付される画像は、上記所有服のうち以下の id の服の画像です（順番に対応）：${vision.ids.join(', ')}\n色味・柄・シルエットも判断材料にしてください。`
+    : ''
+
   const prompt = `あなたは経験豊富な日本のファッションスタイリストです。以下の条件に基づき、ユーザーの所有服から最適なコーディネートを提案してください。
 
 【入力情報】
@@ -153,7 +222,7 @@ ${weatherText}
 TPO: ${tpoLabels[context.tpo]}${meText}${scheduleText}${styleText}${recentText}${fixedText}${excludedText}
 
 【ユーザーの所有服一覧】
-${clothesSummary || '（まだ服が登録されていません）'}${closetStatsText}${missingHintText}
+${clothesSummary || '（まだ服が登録されていません）'}${closetStatsText}${missingHintText}${visionText}
 
 【コーデの構成パターン】
 以下のいずれか1つを選び、それに沿って itemIds を組み立ててください：
@@ -210,7 +279,7 @@ ${clothesSummary || '（まだ服が登録されていません）'}${closetStat
 服が少ない場合でも、ある服を活かした提案をしてください。`
 
   try {
-    const text = await callGeminiWithRetry(prompt)
+    const text = await callGeminiWithRetry(prompt, vision.parts)
     // 使用ログ（成功時のみ。失敗時はリトライ済で課金は変動する想定）
     void logUsage({
       service: 'gemini_outfit_suggest',
@@ -256,12 +325,19 @@ const PRIMARY_MODEL = 'gemini-flash-latest'
 const FALLBACK_MODEL = 'gemini-2.0-flash' // 安定運用のためのフォールバック
 const MAX_RETRIES = 3
 
-async function tryGeminiModel(modelName: string, prompt: string): Promise<string> {
+async function tryGeminiModel(
+  modelName: string,
+  prompt: string,
+  imageParts: Array<{ inlineData: { data: string; mimeType: string } }> = []
+): Promise<string> {
   let lastError: unknown
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName })
-      const result = await model.generateContent(prompt)
+      // 画像があれば multimodal、なければ純粋テキスト
+      const result = imageParts.length > 0
+        ? await model.generateContent([prompt, ...imageParts])
+        : await model.generateContent(prompt)
       return result.response.text()
     } catch (e) {
       lastError = e
@@ -285,14 +361,17 @@ async function tryGeminiModel(modelName: string, prompt: string): Promise<string
   throw lastError
 }
 
-async function callGeminiWithRetry(prompt: string): Promise<string> {
+async function callGeminiWithRetry(
+  prompt: string,
+  imageParts: Array<{ inlineData: { data: string; mimeType: string } }> = []
+): Promise<string> {
   try {
-    return await tryGeminiModel(PRIMARY_MODEL, prompt)
+    return await tryGeminiModel(PRIMARY_MODEL, prompt, imageParts)
   } catch (primaryErr) {
     console.warn(
       `[gemini] primary ${PRIMARY_MODEL} exhausted, falling back to ${FALLBACK_MODEL}:`,
       primaryErr
     )
-    return await tryGeminiModel(FALLBACK_MODEL, prompt)
+    return await tryGeminiModel(FALLBACK_MODEL, prompt, imageParts)
   }
 }

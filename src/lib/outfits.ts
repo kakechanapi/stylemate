@@ -79,3 +79,26 @@ export async function updateOutfit(
   if (error) return { ok: false, error: error.message }
   return { ok: true }
 }
+
+/**
+ * 直近 N 日に着た服の cloth_ids を全部集めて返す（被り回避＋マンネリ防止用）。
+ * AI 提案でこれらを「最近着てる」と認識させ、同じ提案の繰り返しを減らす。
+ */
+export async function recentlyWornClothIds(days = 7): Promise<string[]> {
+  const supabase = await createSupabaseServerClient()
+  const since = new Date()
+  since.setDate(since.getDate() - days)
+  const sinceStr = since.toISOString().slice(0, 10) // YYYY-MM-DD
+  const { data, error } = await supabase
+    .from('outfits')
+    .select('cloth_ids')
+    .gte('worn_at', sinceStr)
+    .order('worn_at', { ascending: false })
+  if (error) {
+    console.error('[lib/outfits] recentlyWornClothIds error:', error.message)
+    return []
+  }
+  const ids = new Set<string>()
+  ;(data || []).forEach((o) => (o.cloth_ids as string[] | null)?.forEach((id) => ids.add(id)))
+  return Array.from(ids)
+}

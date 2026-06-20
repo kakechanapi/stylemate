@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { generateOutfitSuggestion } from '@/lib/gemini'
 import { recentClothesWithFriends } from '@/lib/events'
+import { recentlyWornClothIds } from '@/lib/outfits'
 import { getStyleProfile } from '@/lib/style'
 import { getMe } from '@/lib/friends'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
@@ -40,6 +41,12 @@ export async function POST(request: Request) {
   ) {
     recentClothIds = await recentClothesWithFriends(body.friend_ids, 5)
   }
+
+  // マンネリ防止：直近1週間で着た服も「最近使った」枠に統合して AI に渡す
+  // 同じ提案が繰り返されるのを防ぐ。
+  const recentlyWorn = await recentlyWornClothIds(7)
+  const mergedRecent = Array.from(new Set([...recentClothIds, ...recentlyWorn]))
+  recentClothIds = mergedRecent
 
   // 嗜好タグ：明示指定がなければ style_profiles から自動取得
   let styleTags: string[] | undefined = body.styleTags
