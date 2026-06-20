@@ -7,7 +7,7 @@ import { uploadClothingImage } from '@/lib/storage'
 import { classifyClothing } from '@/lib/clothes-classifier'
 import { handleActionResult } from '@/components/SessionExpiredHandler'
 
-type Tab = 'search' | 'barcode' | 'manual'
+type Tab = 'search' | 'photo' | 'manual'
 
 const categories = [
   { id: 'tops', label: 'トップス', emoji: '👕' },
@@ -146,6 +146,90 @@ export default function RegisterPage() {
     e.target.value = ''
   }
 
+  // ─── 📷 写真AI 自動判定 ───
+  // ファイル → Storage アップロード + Gemini Vision で自動分類 → manual タブにプリフィル
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const [classifying, setClassifying] = useState(false)
+  const [classifyError, setClassifyError] = useState('')
+
+  // ファイル → base64 (data URL の prefix なし)
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result as string
+        // "data:image/jpeg;base64,XXXX" → "XXXX"
+        const base64 = result.replace(/^data:image\/[a-zA-Z]+;base64,/, '')
+        resolve(base64)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+  const handlePhotoAiPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setClassifying(true)
+    setClassifyError('')
+    setUploadError('')
+    try {
+      // 並列実行：①画像を Storage にアップロード ②Gemini Vision で分類
+      const base64Promise = fileToBase64(file)
+      const uploadPromise = uploadClothingImage(file)
+
+      const [base64, uploadResult] = await Promise.all([base64Promise, uploadPromise])
+
+      // 分類 API 呼び出し
+      const classifyRes = await fetch('/api/classify-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mimeType: file.type || 'image/jpeg' }),
+      })
+      const classifyData = await classifyRes.json()
+
+      if (!classifyData.ok) {
+        setClassifyError(classifyData.error || 'AI が画像を判定できませんでした')
+        setClassifying(false)
+        e.target.value = ''
+        return
+      }
+
+      // 画像 URL を反映（アップロード成功した場合）
+      if (uploadResult.ok && uploadResult.url) {
+        setImageUrl(uploadResult.url)
+      } else if (uploadResult.error) {
+        setUploadError(uploadResult.error)
+      }
+
+      // AI 判定結果をフォームにプリフィル
+      if (classifyData.name) setName(classifyData.name)
+      if (classifyData.brand) setBrand(classifyData.brand)
+      if (classifyData.category) setCategory(classifyData.category)
+      if (classifyData.color) setColor(classifyData.color)
+      if (Array.isArray(classifyData.tpoTags) && classifyData.tpoTags.length > 0) {
+        setSelectedTpo(classifyData.tpoTags)
+      }
+      if (Array.isArray(classifyData.seasonTags) && classifyData.seasonTags.length > 0) {
+        setSeasonTags(classifyData.seasonTags)
+      }
+      // AI が判定した項目はバッジ表示
+      setAutoFilled({
+        category: !!classifyData.category,
+        color: !!classifyData.color,
+        tpo: Array.isArray(classifyData.tpoTags) && classifyData.tpoTags.length > 0,
+        season: Array.isArray(classifyData.seasonTags) && classifyData.seasonTags.length > 0,
+      })
+
+      // 手動タブに遷移して確認 → 保存させる
+      setTab('manual')
+    } catch (err) {
+      setClassifyError(err instanceof Error ? err.message : '不明なエラー')
+    } finally {
+      setClassifying(false)
+      e.target.value = ''
+    }
+  }
+
   const handleSearch = async () => {
     if (!keyword.trim()) return
     setSearching(true)
@@ -232,7 +316,7 @@ export default function RegisterPage() {
       <div style={{ display: 'flex', background: '#FFF0F6', borderRadius: '12px', padding: '4px', marginBottom: '20px' }}>
         {([
           { id: 'search', label: '🔍 検索' },
-          { id: 'barcode', label: '📷 バーコード' },
+          { id: 'photo', label: '📷 写真AI' },
           { id: 'manual', label: '✏️ 手動' },
         ] as { id: Tab; label: string }[]).map(t => (
           <button
@@ -488,64 +572,77 @@ export default function RegisterPage() {
         </div>
       )}
 
-      {/* Barcode tab */}
-      {tab === 'barcode' && (
-        <div style={{ textAlign: 'center', padding: '32px 16px' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📷</div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#333', marginBottom: '8px' }}>
-            バーコードスキャン
+      {/* Photo AI tab：写真撮影 → Gemini Vision で自動判定 → 手動タブで確認＆保存 */}
+      {tab === 'photo' && (
+        <div style={{ textAlign: 'center', padding: '24px 16px' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '12px' }}>📷✨</div>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#333', marginBottom: '6px' }}>
+            写真からAIで自動登録
           </h3>
-          <p style={{ color: '#bbb', fontSize: '0.85rem', lineHeight: 1.7, marginBottom: '24px' }}>
-            服のタグに付いているバーコードを<br />カメラで読み取ります
+          <p style={{ color: '#888', fontSize: '0.82rem', lineHeight: 1.7, marginBottom: '24px' }}>
+            スマホで服の写真を撮るだけで、
+            <br />
+            AI が <b>カテゴリ・色・名前・シーン・季節</b> を自動入力します
           </p>
-          <div style={{
-            background: '#000',
-            borderRadius: '20px',
-            padding: '24px',
-            margin: '0 auto 20px',
-            maxWidth: '280px',
-            aspectRatio: '4/3',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              border: '3px solid #E8A0BF',
-              borderRadius: '8px',
-              width: '70%',
-              height: '40%',
-              position: 'relative',
-            }}>
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '-5%',
-                right: '-5%',
-                height: '2px',
-                background: 'linear-gradient(90deg, transparent, #E8A0BF, transparent)',
-              }} />
-            </div>
-            <p style={{ position: 'absolute', bottom: '12px', color: '#fff', fontSize: '0.75rem', opacity: 0.7 }}>
-              カメラプレビュー（開発中）
-            </p>
-          </div>
-          <p style={{ fontSize: '0.8rem', color: '#bbb', marginBottom: '20px' }}>
-            ※ バーコードスキャン機能は次バージョンで対応予定
-          </p>
+
+          {/* ファイル選択 input（カメラ起動 or ギャラリー） */}
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handlePhotoAiPick}
+            style={{ display: 'none' }}
+          />
+
           <button
-            onClick={() => setTab('search')}
+            onClick={() => photoInputRef.current?.click()}
+            disabled={classifying}
             style={{
-              background: 'linear-gradient(135deg, #E8A0BF, #C4779B)',
+              background: classifying
+                ? '#ddd'
+                : 'linear-gradient(135deg, #E8A0BF, #C4779B)',
               color: '#fff',
-              borderRadius: '24px',
-              padding: '12px 28px',
+              borderRadius: 24,
+              padding: '14px 32px',
               fontWeight: 700,
+              fontSize: '0.95rem',
+              cursor: classifying ? 'wait' : 'pointer',
+              boxShadow: classifying ? 'none' : '0 4px 14px rgba(196,121,155,0.35)',
+              marginBottom: 16,
             }}
           >
-            ブランド検索で登録する
+            {classifying ? '🤖 AI が分析中…' : '📷 写真を撮る / 選ぶ'}
           </button>
+
+          {classifyError && (
+            <p style={{ color: '#d63384', fontSize: '0.8rem', marginBottom: 12 }}>
+              {classifyError}
+            </p>
+          )}
+
+          {/* 使い方ヒント */}
+          <div
+            style={{
+              background: '#FFF8FB',
+              border: '1px solid #FFE4F0',
+              borderRadius: 12,
+              padding: 14,
+              fontSize: '0.74rem',
+              color: '#888',
+              lineHeight: 1.7,
+              textAlign: 'left',
+              marginTop: 16,
+            }}
+          >
+            <b style={{ color: '#C4779B' }}>📝 撮影のコツ</b>
+            <ul style={{ marginLeft: 18, marginTop: 4 }}>
+              <li>明るい場所で、服全体が写るように</li>
+              <li>背景は単色がベスト（ハンガー or 床に広げる）</li>
+              <li>1枚に1着の服。複数枚は別々に登録</li>
+              <li>AI が判定後、手動タブで確認→保存できます</li>
+            </ul>
+          </div>
         </div>
       )}
 
