@@ -9,11 +9,16 @@ import {
 } from './outfit-suggestion-actions'
 
 interface OutfitSuggestion {
+  theme?: string // 「韓国系クリーンカジュアル」等のテーマ名
   suggestion: string
   reason: string
   items: string[]
   itemIds: string[]
   layerHint?: string
+}
+
+interface SuggestionsResponse {
+  suggestions: OutfitSuggestion[]
   /** クローゼットに足りないカテゴリ（UI で「登録すると幅が広がる」ガイド表示用） */
   missingCategories?: string[]
 }
@@ -34,9 +39,11 @@ const DRAFT_KEY = 'stylemate:outfit-draft'
 
 interface DraftPayload {
   date: string // YYYY-MM-DD
-  suggestion: OutfitSuggestion
+  suggestions: OutfitSuggestion[]
+  selectedIndex: number | null
   itemStatus: Record<string, ItemStatus>
   weather?: { description?: string; temperature?: number } | null
+  missingCategories?: string[]
 }
 
 function todayStr(): string {
@@ -46,7 +53,10 @@ function todayStr(): string {
 
 export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfit }: Props) {
   const router = useRouter()
-  const [suggestion, setSuggestion] = useState<OutfitSuggestion | null>(null)
+  // 3案を保持。selectedIndex が決まったら詳細モード、null なら3案リスト表示
+  const [suggestions, setSuggestions] = useState<OutfitSuggestion[]>([])
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [missingCategories, setMissingCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   // アイテムごとの状態
   const [itemStatus, setItemStatus] = useState<Record<string, ItemStatus>>({})
@@ -60,6 +70,9 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
   // ドラフトを localStorage から復元
   const [draftLoaded, setDraftLoaded] = useState(false)
 
+  // 選択中の案（詳細モードで参照）
+  const suggestion = selectedIndex !== null ? suggestions[selectedIndex] || null : null
+
   // 初回マウント時：localStorage からドラフトを復元（今日のものだけ）
   useEffect(() => {
     if (todayOutfit) {
@@ -70,12 +83,14 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
       const raw = localStorage.getItem(DRAFT_KEY)
       if (raw) {
         const draft = JSON.parse(raw) as DraftPayload
-        if (draft.date === todayStr() && draft.suggestion?.itemIds?.length > 0) {
-          setSuggestion(draft.suggestion)
+        if (draft.date === todayStr() && Array.isArray(draft.suggestions) && draft.suggestions.length > 0) {
+          setSuggestions(draft.suggestions)
+          setSelectedIndex(draft.selectedIndex)
           setItemStatus(draft.itemStatus || {})
           setLastWeather(draft.weather || null)
+          setMissingCategories(draft.missingCategories || [])
         } else {
-          // 日付が違うので破棄
+          // 日付が違う / 旧形式 → 破棄
           localStorage.removeItem(DRAFT_KEY)
         }
       }
@@ -86,30 +101,34 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
     setDraftLoaded(true)
   }, [todayOutfit])
 
-  // suggestion or itemStatus が変わったら localStorage を更新
+  // suggestions or itemStatus が変わったら localStorage を更新
   useEffect(() => {
     if (!draftLoaded) return
     if (todayOutfit) return // 確定済みなら保存しない
-    if (!suggestion) {
+    if (suggestions.length === 0) {
       localStorage.removeItem(DRAFT_KEY)
       return
     }
     const payload: DraftPayload = {
       date: todayStr(),
-      suggestion,
+      suggestions,
+      selectedIndex,
       itemStatus,
       weather: lastWeather,
+      missingCategories,
     }
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(payload))
     } catch {
       // 容量オーバー等は無視
     }
-  }, [suggestion, itemStatus, lastWeather, draftLoaded, todayOutfit])
+  }, [suggestions, selectedIndex, itemStatus, lastWeather, missingCategories, draftLoaded, todayOutfit])
 
   const fetchSuggestion = async (opts?: {
     fixedItemIds?: string[]
     excludedItemIds?: string[]
+    /** 詳細モードで「却下→差し替え再提案」した時 true。結果を1案として詳細モードに直接戻す */
+    fromDetailRefresh?: boolean
   }) => {
     setLoading(true)
     setConfirmed(false)
@@ -154,24 +173,57 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
           excludedItemIds: opts?.excludedItemIds,
         }),
       })
-      const data = (await res.json()) as OutfitSuggestion
-      setSuggestion(data)
-      // 新しい提案の status を初期化（固定アイテムは継続、それ以外は pending）
-      const nextStatus: Record<string, ItemStatus> = {}
-      for (const id of data.itemIds || []) {
-        nextStatus[id] = opts?.fixedItemIds?.includes(id) ? 'fixed' : 'pending'
+      const data = (await res.json()) as SuggestionsResponse
+      const list = Array.isArray(data.suggestions) ? data.suggestions : []
+      setSuggestions(list)
+      setMissingCategories(data.missingCategories || [])
+      // 「却下→差し替え再提案」（refresh フロー）は、1案だけ返る想定なので自動で詳細モードへ
+      // 新規提案はリスト表示モードから始めて、ユーザーに選ばせる
+      if (opts?.fromDetailRefresh && list.length > 0) {
+        setSelectedIndex(0)
+        const nextStatus: Record<string, ItemStatus> = {}
+        for (const id of list[0].itemIds || []) {
+          nextStatus[id] = opts?.fixedItemIds?.includes(id) ? 'fixed' : 'pending'
+        }
+        setItemStatus(nextStatus)
+      } else {
+        setSelectedIndex(null)
+        setItemStatus({})
       }
-      setItemStatus(nextStatus)
     } catch {
-      setSuggestion({
-        suggestion: '提案の取得に失敗しました。再試行してください。',
-        reason: '',
-        items: [],
-        itemIds: [],
-      })
+      setSuggestions([
+        {
+          suggestion: '提案の取得に失敗しました。再試行してください。',
+          reason: '',
+          items: [],
+          itemIds: [],
+        },
+      ])
+      setSelectedIndex(0)
     } finally {
       setLoading(false)
     }
+  }
+
+  // 3案リストから1案選択 → 詳細モードへ
+  const handleSelectSuggestion = (idx: number) => {
+    setSelectedIndex(idx)
+    const picked = suggestions[idx]
+    const nextStatus: Record<string, ItemStatus> = {}
+    for (const id of picked.itemIds || []) {
+      nextStatus[id] = 'pending'
+    }
+    setItemStatus(nextStatus)
+    setConfirmed(false)
+    setConfirmError('')
+  }
+
+  // 「← 別の案を見る」で 3案リストに戻る
+  const handleBackToList = () => {
+    setSelectedIndex(null)
+    setItemStatus({})
+    setConfirmed(false)
+    setConfirmError('')
   }
 
   // アイテムの固定/却下/解除
@@ -212,7 +264,7 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
       if (s === 'fixed') fixedIds.push(id)
       if (s === 'rejected') excludedIds.push(id)
     }
-    fetchSuggestion({ fixedItemIds: fixedIds, excludedItemIds: excludedIds })
+    fetchSuggestion({ fixedItemIds: fixedIds, excludedItemIds: excludedIds, fromDetailRefresh: true })
   }
 
   // 「今日の服に決定」
@@ -374,7 +426,7 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
   }
 
   // ─── 初期表示 ───
-  if (!suggestion && !loading) {
+  if (suggestions.length === 0 && !loading) {
     return (
       <div
         style={{
@@ -388,7 +440,7 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
       >
         <div style={{ fontSize: '3rem', marginBottom: 12 }}>✨</div>
         <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: 16 }}>
-          AI が今日の天気・シーンから最適なコーデを提案します
+          AI が今日の天気・シーンから3案のコーデを提案します
         </p>
         <button
           onClick={() => fetchSuggestion()}
@@ -407,6 +459,20 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
           コーデを提案してもらう
         </button>
       </div>
+    )
+  }
+
+  // ─── 3案リスト表示モード ───
+  // 詳細モード（selectedIndex !== null）に入る前に、3案を見比べて選ばせる
+  if (suggestions.length > 0 && selectedIndex === null && !loading) {
+    return (
+      <SuggestionsListView
+        suggestions={suggestions}
+        clothes={clothes}
+        onSelect={handleSelectSuggestion}
+        onRefresh={() => fetchSuggestion()}
+        missingCategories={missingCategories}
+      />
     )
   }
 
@@ -446,12 +512,44 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
         border: '1px solid #FFE4F0',
       }}
     >
-      {/* ヘッダー */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+      {/* ヘッダー：「← 別の案を見る」ボタン + テーマ名 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        {suggestions.length > 1 && (
+          <button
+            onClick={handleBackToList}
+            style={{
+              background: 'transparent',
+              border: '1.5px solid #E8A0BF',
+              color: '#C4779B',
+              borderRadius: 12,
+              padding: '4px 10px',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            ← 別の案を見る
+          </button>
+        )}
         <span style={{ fontSize: '1.2rem' }}>✨</span>
         <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#C4779B' }}>
-          AI コーデ提案
+          {suggestion?.theme || 'AI コーデ提案'}
         </span>
+        {suggestions.length > 1 && selectedIndex !== null && (
+          <span
+            style={{
+              marginLeft: 'auto',
+              fontSize: '0.65rem',
+              color: '#999',
+              background: '#FFF0F6',
+              padding: '2px 8px',
+              borderRadius: 10,
+              fontWeight: 700,
+            }}
+          >
+            {selectedIndex + 1} / {suggestions.length} 案目
+          </span>
+        )}
       </div>
 
       {/* ① 一番上：服画像コラージュ（仮の「自分が着たイメージ」） */}
@@ -520,7 +618,7 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
       </div>
 
       {/* クローゼットの不足カテゴリ案内（提案が薄かった本質的な原因の可視化） */}
-      {suggestion?.missingCategories && suggestion.missingCategories.length > 0 && (
+      {missingCategories.length > 0 && (
         <div
           style={{
             background: '#FFF8E1',
@@ -534,7 +632,7 @@ export default function OutfitSuggestionCard({ clothes, tpo, eventId, todayOutfi
             💡 もっと豊かなコーデにするには
           </div>
           <p style={{ fontSize: '0.72rem', color: '#7B5B00', lineHeight: 1.6, margin: 0, marginBottom: 8 }}>
-            <b>{suggestion.missingCategories.join('・')}</b>がクローゼットに未登録です。登録するとコーデの幅が広がります。
+            <b>{missingCategories.join('・')}</b>がクローゼットに未登録です。登録するとコーデの幅が広がります。
           </p>
           <a
             href="/register"
@@ -901,5 +999,259 @@ function ItemRow({
         </button>
       )}
     </div>
+  )
+}
+
+// ─────────────────────────────
+// 3案リスト表示モード
+// 「A案 / B案 / C案」をカード形式で並べて、ユーザーに選ばせる
+// ─────────────────────────────
+function SuggestionsListView({
+  suggestions,
+  clothes,
+  onSelect,
+  onRefresh,
+  missingCategories,
+}: {
+  suggestions: OutfitSuggestion[]
+  clothes: ClothingItem[]
+  onSelect: (idx: number) => void
+  onRefresh: () => void
+  missingCategories: string[]
+}) {
+  return (
+    <div
+      style={{
+        background: 'linear-gradient(135deg, #fff 0%, #FFF5F8 100%)',
+        borderRadius: 20,
+        padding: 16,
+        boxShadow: '0 4px 20px rgba(232,160,191,0.15)',
+        border: '1px solid #FFE4F0',
+      }}
+    >
+      {/* ヘッダー */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontSize: '1.2rem' }}>✨</span>
+        <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#C4779B' }}>
+          今日のコーデ {suggestions.length}案
+        </span>
+        <span
+          style={{
+            marginLeft: 'auto',
+            fontSize: '0.66rem',
+            color: '#999',
+          }}
+        >
+          気になる案をタップ
+        </span>
+      </div>
+
+      {/* 不足カテゴリ案内（リスト表示でも見せる） */}
+      {missingCategories.length > 0 && (
+        <div
+          style={{
+            background: '#FFF8E1',
+            border: '1px solid #FFE082',
+            borderRadius: 12,
+            padding: 10,
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ fontSize: '0.72rem', color: '#7B5B00', lineHeight: 1.5 }}>
+            💡 <b>{missingCategories.join('・')}</b>未登録 → 登録すると幅が広がります
+          </div>
+        </div>
+      )}
+
+      {/* 3案カード */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {suggestions.map((s, idx) => (
+          <SuggestionListItem
+            key={idx}
+            index={idx}
+            suggestion={s}
+            clothes={clothes}
+            onClick={() => onSelect(idx)}
+          />
+        ))}
+      </div>
+
+      {/* 全部やり直し */}
+      <button
+        onClick={onRefresh}
+        style={{
+          width: '100%',
+          marginTop: 14,
+          background: 'transparent',
+          color: '#bbb',
+          border: 'none',
+          padding: 6,
+          fontSize: '0.74rem',
+          cursor: 'pointer',
+        }}
+      >
+        🔄 別の3案を生成する
+      </button>
+    </div>
+  )
+}
+
+/** 1案分のカード（テーマ名 + コラージュ + アイテム名 + これにするボタン） */
+function SuggestionListItem({
+  index,
+  suggestion,
+  clothes,
+  onClick,
+}: {
+  index: number
+  suggestion: OutfitSuggestion
+  clothes: ClothingItem[]
+  onClick: () => void
+}) {
+  const items = (suggestion.itemIds || [])
+    .map((id) => clothes.find((c) => c.id === id))
+    .filter((c): c is ClothingItem => !!c)
+
+  const labels = ['A', 'B', 'C', 'D', 'E']
+  const planLabel = labels[index] || String(index + 1)
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: '#fff',
+        border: '2px solid #FFE4F0',
+        borderRadius: 14,
+        padding: 12,
+        cursor: 'pointer',
+        width: '100%',
+        textAlign: 'left',
+        transition: 'transform 0.12s ease, box-shadow 0.18s ease, border-color 0.18s ease',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = '#E8A0BF'
+        e.currentTarget.style.boxShadow = '0 6px 18px rgba(232,160,191,0.22)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = '#FFE4F0'
+        e.currentTarget.style.boxShadow = 'none'
+      }}
+    >
+      {/* ヘッダー：プラン名 + テーマ */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 26,
+            height: 26,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #E8A0BF, #C4779B)',
+            color: '#fff',
+            fontWeight: 800,
+            fontSize: '0.85rem',
+          }}
+        >
+          {planLabel}
+        </span>
+        <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#333', flex: 1 }}>
+          {suggestion.theme || `案 ${index + 1}`}
+        </span>
+        <span
+          style={{
+            color: '#C4779B',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+          }}
+        >
+          →
+        </span>
+      </div>
+
+      {/* 画像コラージュ（小さめ） */}
+      {items.length > 0 ? (
+        <div
+          style={{
+            display: 'flex',
+            gap: 6,
+            alignItems: 'center',
+            marginBottom: 10,
+            background: 'linear-gradient(180deg, #FFF0F6 0%, #FFE4F0 100%)',
+            borderRadius: 10,
+            padding: 10,
+            overflowX: 'auto',
+          }}
+        >
+          {items.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                width: 60,
+                height: 80,
+                background: '#fff',
+                borderRadius: 8,
+                overflow: 'hidden',
+                boxShadow: '0 2px 6px rgba(196,121,155,0.2)',
+                flexShrink: 0,
+              }}
+            >
+              {item.image_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={item.image_url}
+                  alt={item.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.4rem',
+                    background: '#FFF0F6',
+                  }}
+                >
+                  👗
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div
+          style={{
+            background: '#FFF8FB',
+            borderRadius: 8,
+            padding: 14,
+            textAlign: 'center',
+            color: '#bbb',
+            fontSize: '0.78rem',
+            marginBottom: 10,
+          }}
+        >
+          アイテム情報なし
+        </div>
+      )}
+
+      {/* 説明（1行に圧縮） */}
+      <p
+        style={{
+          fontSize: '0.78rem',
+          color: '#666',
+          lineHeight: 1.5,
+          margin: 0,
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}
+      >
+        {suggestion.suggestion}
+      </p>
+    </button>
   )
 }

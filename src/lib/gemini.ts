@@ -8,7 +8,12 @@ import { logUsage } from './usage-cost'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
+/**
+ * 1案分のコーデ提案
+ * 3案提案する場合は OutfitSuggestionsResult.suggestions[] として並ぶ
+ */
 export interface OutfitSuggestion {
+  theme?: string // テーマ名（例：「韓国系クリーンカジュアル」「きれいめオフィス」）。3案提案時に各案を見分ける用
   suggestion: string // メイン提案テキスト（2〜3文、フレンドリー）
   reason: string // なぜこの提案？
   items: string[] // クローゼットアイテム名（人間が読む用）
@@ -18,6 +23,16 @@ export interface OutfitSuggestion {
    * クローゼットに足りないカテゴリ（UI でガイド表示用）
    * 例：['ボトムス', '羽織り'] → 登録を促す
    */
+  missingCategories?: string[]
+}
+
+/**
+ * 3案提案のレスポンス
+ * 各案には独自のテーマ名・コーデが含まれる
+ * クローゼットが極端に少ない場合は suggestions が 1〜2 案になることもある
+ */
+export interface OutfitSuggestionsResult {
+  suggestions: OutfitSuggestion[]
   missingCategories?: string[]
 }
 
@@ -133,7 +148,7 @@ export interface SuggestionContext {
 export async function generateOutfitSuggestion(
   clothes: ClothingItem[],
   context: SuggestionContext
-): Promise<OutfitSuggestion> {
+): Promise<OutfitSuggestionsResult> {
   const tpoLabels: Record<TPO, string> = {
     casual: 'カジュアル',
     date: 'デート',
@@ -267,16 +282,29 @@ ${clothesSummary || '（まだ服が登録されていません）'}${closetStat
 - 【最重要】ユーザー情報の性別を厳守。男性ユーザーにブラウス・スカート等の女性服を提案しない／女性ユーザーにメンズ専用アイテムを押し付けない。性別「指定しない」or未指定の場合のみ中性的提案OK
 - 体型・身長があれば、シルエット選びの参考にする（がっしり→ゆとり、スリム→タイト等）
 
+【3案提案】
+ユーザーに「これじゃない」感を持たせないため、同じ条件で系統やパターンの異なる **3案** を提案してください。
+- 例：A=きれいめ・B=カジュアル寄り・C=羽織りで温度調整 など系統を分ける
+- 同じアイテムを全案で使い回すのは OK（ベースは同じ服でも組み合わせや系統で変化を出す）
+- 各案には短い「theme」（テーマ名、例：「韓国系クリーンカジュアル」「品よくオフィス」「休日リラックス」）を付けて見分けやすく
+
 【返答形式：必ず JSON のみ、前後に余計なテキスト不要】
 {
-  "suggestion": "コーデの説明（2〜3文、フレンドリーなトーンで）",
-  "reason": "なぜこの提案？（気温・TPO・レイヤーの根拠を簡潔に1〜2文）",
-  "items": ["使う服の名前1", "使う服の名前2", ...],
-  "itemIds": ["使う服のID1", "使う服のID2", ...],
-  "layerHint": "中身レイヤーの補足（itemIds と乖離しないこと。不要なら空文字列）"
+  "suggestions": [
+    {
+      "theme": "テーマ名（10文字以内が理想・例：『韓国系クリーンカジュアル』）",
+      "suggestion": "コーデの説明（2〜3文、フレンドリーなトーンで）",
+      "reason": "なぜこの提案？（気温・TPO・レイヤーの根拠を簡潔に1〜2文）",
+      "items": ["使う服の名前1", "使う服の名前2", ...],
+      "itemIds": ["使う服のID1", "使う服のID2", ...],
+      "layerHint": "中身レイヤーの補足（itemIds と乖離しないこと。不要なら空文字列）"
+    },
+    { /* 2案目：上記と系統を変える */ },
+    { /* 3案目：上記2案と系統を変える */ }
+  ]
 }
 
-服が少ない場合でも、ある服を活かした提案をしてください。`
+服が極端に少なく3案作れない場合は suggestions を 1〜2 案にしてもOK（全案で同じアイテムだけ使い回すのは避ける）。`
 
   try {
     const text = await callGeminiWithRetry(prompt, vision.parts)
@@ -290,13 +318,37 @@ ${clothesSummary || '（まだ服が登録されていません）'}${closetStat
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
-      return {
-        suggestion: parsed.suggestion || '今日のコーデを考え中…',
-        reason: parsed.reason || '',
-        items: Array.isArray(parsed.items) ? parsed.items : [],
-        itemIds: Array.isArray(parsed.itemIds) ? parsed.itemIds : [],
-        layerHint: parsed.layerHint || undefined,
-        missingCategories,
+      // 新形式（suggestions 配列）を期待しつつ、旧形式（単一）も互換維持
+      if (Array.isArray(parsed.suggestions) && parsed.suggestions.length > 0) {
+        const suggestions: OutfitSuggestion[] = parsed.suggestions
+          .map((s: Record<string, unknown>): OutfitSuggestion => ({
+            theme: typeof s.theme === 'string' ? s.theme : undefined,
+            suggestion: typeof s.suggestion === 'string' ? s.suggestion : '今日のコーデを考え中…',
+            reason: typeof s.reason === 'string' ? s.reason : '',
+            items: Array.isArray(s.items) ? s.items as string[] : [],
+            itemIds: Array.isArray(s.itemIds) ? s.itemIds as string[] : [],
+            layerHint: typeof s.layerHint === 'string' && s.layerHint.length > 0 ? s.layerHint : undefined,
+          }))
+          // itemIds 空の案は表示しても意味がないので除外
+          .filter((s: OutfitSuggestion) => s.itemIds.length > 0)
+        if (suggestions.length > 0) {
+          return { suggestions, missingCategories }
+        }
+      }
+      // フォールバック：旧形式の単一提案
+      if (parsed.suggestion || Array.isArray(parsed.itemIds)) {
+        return {
+          suggestions: [
+            {
+              suggestion: parsed.suggestion || '今日のコーデを考え中…',
+              reason: parsed.reason || '',
+              items: Array.isArray(parsed.items) ? parsed.items : [],
+              itemIds: Array.isArray(parsed.itemIds) ? parsed.itemIds : [],
+              layerHint: parsed.layerHint || undefined,
+            },
+          ],
+          missingCategories,
+        }
       }
     }
   } catch (e) {
@@ -304,13 +356,17 @@ ${clothesSummary || '（まだ服が登録されていません）'}${closetStat
   }
 
   return {
-    suggestion:
-      clothes.length === 0
-        ? 'まずクローゼットに服を登録してみましょう！'
-        : 'AI 提案に一時的に失敗しました。再試行してください。',
-    reason: '',
-    items: [],
-    itemIds: [],
+    suggestions: [
+      {
+        suggestion:
+          clothes.length === 0
+            ? 'まずクローゼットに服を登録してみましょう！'
+            : 'AI 提案に一時的に失敗しました。再試行してください。',
+        reason: '',
+        items: [],
+        itemIds: [],
+      },
+    ],
     missingCategories,
   }
 }
