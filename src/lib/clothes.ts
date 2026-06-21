@@ -44,6 +44,15 @@ export interface NewClothing {
   product_url?: string
   tpo_tags?: string[]
   season_tags?: string[]
+  // ─── 詳細特徴（migration 0009 対応） ───
+  material?: string
+  silhouette?: string
+  pattern?: string
+  neckline?: string
+  sleeve_type?: string
+  length_type?: string
+  transparency?: 'none' | 'slight' | 'significant'
+  features?: string[]
 }
 
 export async function createClothing(input: NewClothing): Promise<{ ok: boolean; error?: string }> {
@@ -63,6 +72,15 @@ export async function createClothing(input: NewClothing): Promise<{ ok: boolean;
     product_url: input.product_url,
     tpo_tags: input.tpo_tags || [],
     season_tags: input.season_tags || [],
+    // 詳細特徴（migration 0009 で追加されたカラム）
+    material: input.material,
+    silhouette: input.silhouette,
+    pattern: input.pattern,
+    neckline: input.neckline,
+    sleeve_type: input.sleeve_type,
+    length_type: input.length_type,
+    transparency: input.transparency,
+    features: input.features,
   })
 
   if (error) {

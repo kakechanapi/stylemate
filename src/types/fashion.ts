@@ -17,6 +17,23 @@ export interface ClothingItem {
   wear_count: number
   last_worn_at?: string
   created_at: string
+  // ─── 詳細特徴（migration 0009 で追加。AI コーデ提案の精度UP用） ───
+  /** 素材：リネン / コットン / ウール / ナイロン / シルク / カシミヤ / デニム 等 */
+  material?: string
+  /** シルエット：タイト / レギュラー / ルーズ / オーバーサイズ / Aライン / フレア 等 */
+  silhouette?: string
+  /** 柄：無地 / ボーダー / ストライプ / チェック / 花柄 / ドット / アニマル 等 */
+  pattern?: string
+  /** 首元（トップス・ワンピース）：クルー / Vネック / タートル / オフショル / ボートネック 等 */
+  neckline?: string
+  /** 袖：半袖 / 長袖 / 七分袖 / ノースリーブ / パフ / フレア 等 */
+  sleeve_type?: string
+  /** 丈感：ショート / ミドル / ロング / マキシ / ミニ / ミディ 等 */
+  length_type?: string
+  /** 透け感：none / slight / significant */
+  transparency?: 'none' | 'slight' | 'significant'
+  /** その他の自由特徴ラベル（例：['フリル', 'リブ編み', '裏起毛']） */
+  features?: string[]
 }
 
 export interface Outfit {

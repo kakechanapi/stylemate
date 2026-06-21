@@ -187,6 +187,20 @@ export async function generateOutfitSuggestion(
   if (me?.body_type) meParts.push(`体型: ${me.body_type}`)
   const meText = meParts.length > 0 ? `\nユーザー情報：${meParts.join('、')}` : ''
 
+  // 女性ユーザー向け：特有の配慮事項を AI に明示する
+  // （透け対策・インナー・アクセサリー・タイツ等）
+  const isFemale = me?.gender === '女性'
+  const femaleCareText = isFemale
+    ? `\n【女性ユーザー向けの追加配慮】
+- 透け感（slight/significant）があるトップス・ワンピースは、インナー（キャミソール・チューブトップ・タンクトップ等）が必要 → 提案文で言及するか itemIds に含める
+- 白いトップス × 黒いボトムスのような下着が透けやすい組み合わせは、シームレスインナー推奨を suggestion/layerHint で言及
+- シンプルな服はアクセサリー・バッグの「差し色」「ワンポイント」で印象UP（クローゼットにアクセサリー・バッグがあれば積極活用）
+- スカートやワンピースを使う場合、季節に応じてタイツ・ストッキング・ソックスの提案を suggestion で言及（既存アイテムにあれば itemIds にも入れる）
+- ノースリーブ・オフショル系は、肌見せ＝TPO 配慮（仕事・フォーマルでは避ける）
+- パフスリーブ・フリル等のフェミニン要素は、好み（嗜好タグ）に合えば積極採用
+`
+    : ''
+
   const styleText =
     context.styleTags && context.styleTags.length > 0
       ? `\nユーザーの嗜好：${context.styleTags.join('、')}`
@@ -207,11 +221,29 @@ export async function generateOutfitSuggestion(
       ? `\n【絶対に使わない服ID】ユーザーが却下：${context.excludedItemIds.join(', ')}`
       : ''
 
+  // 服一覧サマリ：詳細特徴があれば併記して AI に渡す
+  // 「ベージュのリネンVネック半袖 = 涼しい・透ける可能性あり」のような判断ができる
   const clothesSummary = clothes
-    .map(
-      (c) =>
-        `- id="${c.id}" 名前="${c.name}" カテゴリ=${c.category} ブランド="${c.brand || '不明'}" 色="${c.color || '不明'}"`
-    )
+    .map((c) => {
+      const parts = [
+        `id="${c.id}"`,
+        `名前="${c.name}"`,
+        `カテゴリ=${c.category}`,
+        `色="${c.color || '不明'}"`,
+      ]
+      if (c.brand) parts.push(`ブランド="${c.brand}"`)
+      if (c.material) parts.push(`素材=${c.material}`)
+      if (c.silhouette) parts.push(`シルエット=${c.silhouette}`)
+      if (c.pattern) parts.push(`柄=${c.pattern}`)
+      if (c.neckline) parts.push(`首元=${c.neckline}`)
+      if (c.sleeve_type) parts.push(`袖=${c.sleeve_type}`)
+      if (c.length_type) parts.push(`丈=${c.length_type}`)
+      if (c.transparency && c.transparency !== 'none') {
+        parts.push(`透け感=${c.transparency === 'slight' ? 'やや透ける' : 'かなり透ける'}`)
+      }
+      if (c.features && c.features.length > 0) parts.push(`特徴=[${c.features.join(',')}]`)
+      return `- ${parts.join(' ')}`
+    })
     .join('\n')
 
   // クローゼット全体の所有数。
@@ -237,7 +269,7 @@ export async function generateOutfitSuggestion(
 
 【入力情報】
 ${weatherText}
-TPO: ${tpoLabels[context.tpo]}${meText}${scheduleText}${styleText}${recentText}${fixedText}${excludedText}
+TPO: ${tpoLabels[context.tpo]}${meText}${femaleCareText}${scheduleText}${styleText}${recentText}${fixedText}${excludedText}
 
 【ユーザーの所有服一覧】
 ${clothesSummary || '（まだ服が登録されていません）'}${closetStatsText}${missingHintText}${visionText}

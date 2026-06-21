@@ -22,6 +22,15 @@ export interface ClassifyImageResponse {
   color?: string // 「ホワイト」「ブラック」「ネイビー」等
   tpoTags?: string[] // ['casual', 'work'] 等
   seasonTags?: string[] // ['spring', 'summer'] 等
+  // ─── 詳細特徴（migration 0009 対応） ───
+  material?: string
+  silhouette?: string
+  pattern?: string
+  neckline?: string
+  sleeveType?: string
+  lengthType?: string
+  transparency?: 'none' | 'slight' | 'significant'
+  features?: string[]
   error?: string
 }
 
@@ -34,7 +43,15 @@ const PROMPT = `あなたはファッション分類の専門家です。送ら�
   "category": "tops | bottoms | outerwear | shoes | bag | accessory | dress | other のいずれか",
   "color": "ホワイト / ブラック / グレー / ネイビー / ブルー / レッド / ピンク / グリーン / イエロー / ブラウン / ベージュ / パープル / オレンジ / ボルドー のいずれか（最も近いもの）",
   "tpoTags": ["casual | date | work | party | sport | formal のうち適切なもの 1〜3個"],
-  "seasonTags": ["spring | summer | autumn | winter のうち適切なもの 1〜3個"]
+  "seasonTags": ["spring | summer | autumn | winter のうち適切なもの 1〜3個"],
+  "material": "リネン / コットン / ウール / ナイロン / ポリエステル / シルク / カシミヤ / デニム / ニット / レザー / スウェット / ベロア / ツイード / 不明 のいずれか（最も近いもの）",
+  "silhouette": "タイト / レギュラー / ルーズ / オーバーサイズ / Aライン / フレア / ストレート / スキニー / ワイド / 不明 のいずれか",
+  "pattern": "無地 / ボーダー / ストライプ / チェック / 花柄 / ドット / アニマル / 迷彩 / ロゴ / グラフィック / 不明 のいずれか",
+  "neckline": "クルー / Vネック / タートル / オフショル / ボートネック / ハイネック / ハート / スクエア / シャツカラー / 不明 のいずれか（トップス/ワンピース/アウター以外は '不明'）",
+  "sleeveType": "半袖 / 長袖 / 七分袖 / 五分袖 / ノースリーブ / パフスリーブ / フレアスリーブ / 不明 のいずれか（袖が無い服は '不明'）",
+  "lengthType": "ショート / ミドル / ロング / マキシ / ミニ / ミディ / 不明 のいずれか",
+  "transparency": "none | slight | significant のいずれか（透けない/やや透ける/かなり透ける）",
+  "features": ["その他の特徴ラベル（例：'フリル', 'リブ編み', '裏起毛', 'ベルト付き', 'プリーツ'）。最大3個。なければ空配列"]
 }
 
 【判定の指針】
@@ -42,6 +59,8 @@ const PROMPT = `あなたはファッション分類の専門家です。送ら�
 - name は短く（10文字以内が理想）、誰が見ても何の服か分かる表現
 - category は1つだけ選ぶ。トップス + アウター で迷ったら「主に羽織りに見えれば outerwear、上に重ねず1枚で着るなら tops」
 - color は「最も占有面積の大きい色」。柄物の場合はベースカラー
+- transparency は重要：シアー素材・薄いブラウス・レース等は 'slight' or 'significant' に
+- 判別できない項目は '不明' を使う（嘘の値は入れない）
 - 写真が暗い・ピンボケ等で判別不能なら、最も近い推測で埋めて返す（空にしない）
 - 服以外（カーテン・家具等）が写っている場合、category="other", name="判別不能" を返す`
 
@@ -90,6 +109,14 @@ export async function POST(request: Request) {
     }
     const parsed = JSON.parse(jsonMatch[0])
 
+    // '不明' を null/undefined に正規化
+    const cleanField = (v: unknown): string | undefined => {
+      if (typeof v !== 'string') return undefined
+      const t = v.trim()
+      if (!t || t === '不明') return undefined
+      return t
+    }
+
     return NextResponse.json<ClassifyImageResponse>({
       ok: true,
       name: typeof parsed.name === 'string' ? parsed.name : undefined,
@@ -98,6 +125,18 @@ export async function POST(request: Request) {
       color: typeof parsed.color === 'string' ? parsed.color : undefined,
       tpoTags: Array.isArray(parsed.tpoTags) ? parsed.tpoTags : undefined,
       seasonTags: Array.isArray(parsed.seasonTags) ? parsed.seasonTags : undefined,
+      material: cleanField(parsed.material),
+      silhouette: cleanField(parsed.silhouette),
+      pattern: cleanField(parsed.pattern),
+      neckline: cleanField(parsed.neckline),
+      sleeveType: cleanField(parsed.sleeveType),
+      lengthType: cleanField(parsed.lengthType),
+      transparency: (parsed.transparency === 'none' || parsed.transparency === 'slight' || parsed.transparency === 'significant')
+        ? parsed.transparency
+        : undefined,
+      features: Array.isArray(parsed.features)
+        ? parsed.features.filter((f: unknown) => typeof f === 'string' && f.trim() && f !== '不明').slice(0, 5)
+        : undefined,
     })
   } catch (e) {
     console.error('[/api/classify-image] error:', e)

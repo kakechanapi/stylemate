@@ -80,6 +80,17 @@ export default function RegisterPage() {
   const [color, setColor] = useState('')
   const [selectedTpo, setSelectedTpo] = useState<string[]>([])
   const [seasonTags, setSeasonTags] = useState<string[]>([])
+  // ─── 写真AIで抽出される詳細特徴（保存時にそのまま流す） ───
+  const [aiDetails, setAiDetails] = useState<{
+    material?: string
+    silhouette?: string
+    pattern?: string
+    neckline?: string
+    sleeve_type?: string
+    length_type?: string
+    transparency?: 'none' | 'slight' | 'significant'
+    features?: string[]
+  }>({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -212,6 +223,17 @@ export default function RegisterPage() {
       if (Array.isArray(classifyData.seasonTags) && classifyData.seasonTags.length > 0) {
         setSeasonTags(classifyData.seasonTags)
       }
+      // 詳細特徴（material/silhouette 等）も保持しておく → 保存時に DB に流す
+      setAiDetails({
+        material: classifyData.material,
+        silhouette: classifyData.silhouette,
+        pattern: classifyData.pattern,
+        neckline: classifyData.neckline,
+        sleeve_type: classifyData.sleeveType,
+        length_type: classifyData.lengthType,
+        transparency: classifyData.transparency,
+        features: classifyData.features,
+      })
       // AI が判定した項目はバッジ表示
       setAutoFilled({
         category: !!classifyData.category,
@@ -271,6 +293,15 @@ export default function RegisterPage() {
         product_url: selected?.productUrl || undefined,
         tpo_tags: selectedTpo,
         season_tags: seasonTags,
+        // 写真AIで抽出した詳細特徴（あれば一緒に保存）
+        material: aiDetails.material,
+        silhouette: aiDetails.silhouette,
+        pattern: aiDetails.pattern,
+        neckline: aiDetails.neckline,
+        sleeve_type: aiDetails.sleeve_type,
+        length_type: aiDetails.length_type,
+        transparency: aiDetails.transparency,
+        features: aiDetails.features,
       })
     )
     if (!result.ok) {
@@ -287,6 +318,7 @@ export default function RegisterPage() {
       setKeyword(''); setSearchResults([])
       setImageUrl(''); setUploadError('')
       setTouched({}); setAutoFilled({})
+      setAiDetails({})
       setTab('search')
       router.push('/closet')
     }, 1500)
