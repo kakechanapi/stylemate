@@ -1,6 +1,7 @@
 // 着用コーデ記録（outfits）の CRUD
 
 import { createSupabaseServerClient } from './supabase/server'
+import { jstDateStrDaysAgo } from './date-helpers'
 import type { Outfit } from '@/types/fashion'
 
 export async function listOutfits(opts?: {
@@ -86,9 +87,8 @@ export async function updateOutfit(
  */
 export async function recentlyWornClothIds(days = 7): Promise<string[]> {
   const supabase = await createSupabaseServerClient()
-  const since = new Date()
-  since.setDate(since.getDate() - days)
-  const sinceStr = since.toISOString().slice(0, 10) // YYYY-MM-DD
+  // JST 基準で「N 日前」の日付を計算（UTC のままだと数時間ずれる）
+  const sinceStr = jstDateStrDaysAgo(days)
   const { data, error } = await supabase
     .from('outfits')
     .select('cloth_ids')

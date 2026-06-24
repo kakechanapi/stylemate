@@ -5,6 +5,7 @@
 //    クライアント側で型・ラベルが必要な場合は admin-costs-shared.ts を使う。
 
 import { createSupabaseServerClient } from './supabase/server'
+import { toJSTDateStr } from './date-helpers'
 import type { DashboardSummary } from './admin-costs-shared'
 
 export type { DashboardSummary } from './admin-costs-shared'
@@ -51,7 +52,8 @@ export async function fetchDashboardSummary(): Promise<DashboardSummary> {
   for (const log of logs) {
     const cost = Number(log.cost_jpy) || 0
     const created = new Date(log.created_at)
-    const dateKey = created.toISOString().slice(0, 10)
+    // JST 基準で日付キーを作る（UTC だと深夜帯のログが前日にずれる）
+    const dateKey = toJSTDateStr(created)
 
     // 過去30日のトレンド
     dailyAgg.set(dateKey, (dailyAgg.get(dateKey) || 0) + cost)
@@ -95,8 +97,7 @@ export async function fetchDashboardSummary(): Promise<DashboardSummary> {
   for (let i = 29; i >= 0; i--) {
     const d = new Date(now)
     d.setDate(now.getDate() - i)
-    d.setHours(0, 0, 0, 0)
-    const key = d.toISOString().slice(0, 10)
+    const key = toJSTDateStr(d)
     daily.push({ date: key, cost: dailyAgg.get(key) || 0 })
   }
 

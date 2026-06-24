@@ -222,7 +222,7 @@ export default function HomeClient({ clothes, userEmail, upcomingEvents, friendN
               boxShadow: '0 4px 14px rgba(196,121,155,0.3)',
             }}
           >
-            ✍ 今日のコーデを記録する
+            ✍ 今日のコーデを手動で記録する
           </Link>
         )}
 
