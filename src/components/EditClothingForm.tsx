@@ -18,9 +18,17 @@ const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
 
 const TPO_OPTIONS = ['casual', 'date', 'work', 'party', 'sport', 'formal']
 const TPO_LABEL: Record<string, string> = {
-  casual: 'カジュアル', date: 'デート', work: '仕事',
-  party: 'パーティー', sport: 'スポーツ', formal: 'フォーマル',
+  casual: 'プライベート', date: 'デート', work: '仕事',
+  party: 'お祝い・パーティー', sport: 'お出かけ・スポーツ', formal: 'フォーマル',
 }
+
+const SEASON_OPTIONS = [
+  { id: 'spring', label: '🌸 春' },
+  { id: 'summer', label: '☀️ 夏' },
+  { id: 'autumn', label: '🍁 秋' },
+  { id: 'winter', label: '❄️ 冬' },
+]
+const ALL_SEASONS = ['spring', 'summer', 'autumn', 'winter']
 
 export default function EditClothingForm({ item }: { item: ClothingItem }) {
   const router = useRouter()
@@ -29,14 +37,25 @@ export default function EditClothingForm({ item }: { item: ClothingItem }) {
   const [category, setCategory] = useState<Category>(item.category)
   const [color, setColor] = useState(item.color || '')
   const [tpoTags, setTpoTags] = useState<string[]>(item.tpo_tags || [])
+  const [seasonTags, setSeasonTags] = useState<string[]>(item.season_tags || [])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const toggleTpo = (t: string) =>
     setTpoTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
+  const toggleSeason = (s: string) =>
+    setSeasonTags((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]))
 
   const handleSave = async () => {
     if (!name.trim() || saving) return
+    if (tpoTags.length === 0) {
+      setError('シーンを 1 つ以上選んでください')
+      return
+    }
+    if (seasonTags.length === 0) {
+      setError('シーズンを 1 つ以上選んでください（通年なら「🌐 オールシーズン」）')
+      return
+    }
     setSaving(true)
     setError('')
     const result = handleActionResult(
@@ -46,6 +65,7 @@ export default function EditClothingForm({ item }: { item: ClothingItem }) {
         category,
         color: color.trim() || undefined,
         tpo_tags: tpoTags,
+        season_tags: seasonTags,
       })
     )
     if (!result.ok) {
@@ -55,6 +75,8 @@ export default function EditClothingForm({ item }: { item: ClothingItem }) {
     }
     router.push('/closet')
   }
+
+  const isAllSeasons = ALL_SEASONS.every((s) => seasonTags.includes(s))
 
   return (
     <div style={{ paddingBottom: 100 }}>
@@ -113,7 +135,12 @@ export default function EditClothingForm({ item }: { item: ClothingItem }) {
         />
       </Field>
 
-      <Field label="シーン">
+      <Field label="シーン" required>
+        {tpoTags.length === 0 && (
+          <p style={{ color: '#d63384', fontSize: '0.7rem', marginBottom: 6 }}>
+            1つ以上必須
+          </p>
+        )}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {TPO_OPTIONS.map((t) => {
             const active = tpoTags.includes(t)
@@ -139,6 +166,55 @@ export default function EditClothingForm({ item }: { item: ClothingItem }) {
         </div>
       </Field>
 
+      <Field label="シーズン" required>
+        {seasonTags.length === 0 && (
+          <p style={{ color: '#d63384', fontSize: '0.7rem', marginBottom: 6 }}>
+            1つ以上必須
+          </p>
+        )}
+        {/* オールシーズントグル */}
+        <button
+          onClick={() => setSeasonTags(isAllSeasons ? [] : [...ALL_SEASONS])}
+          style={{
+            width: '100%',
+            padding: '8px 16px',
+            borderRadius: 20,
+            border: `2px solid ${isAllSeasons ? '#C4779B' : '#eee'}`,
+            background: isAllSeasons ? 'linear-gradient(135deg, #FFF0F6, #FFE4F0)' : '#fff',
+            color: isAllSeasons ? '#C4779B' : '#888',
+            fontSize: '0.82rem',
+            fontWeight: isAllSeasons ? 700 : 600,
+            cursor: 'pointer',
+            marginBottom: 8,
+          }}
+        >
+          🌐 オールシーズン{isAllSeasons ? '（選択中）' : '（白T・無地デニム等の通年アイテム）'}
+        </button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {SEASON_OPTIONS.map((s) => {
+            const active = seasonTags.includes(s.id)
+            return (
+              <button
+                key={s.id}
+                onClick={() => toggleSeason(s.id)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 20,
+                  border: `2px solid ${active ? '#E8A0BF' : '#FFE4F0'}`,
+                  background: active ? '#FFF0F6' : '#fff',
+                  color: active ? '#C4779B' : '#888',
+                  fontSize: '0.82rem',
+                  fontWeight: active ? 700 : 500,
+                  cursor: 'pointer',
+                }}
+              >
+                {s.label}
+              </button>
+            )
+          })}
+        </div>
+      </Field>
+
       {error && <p style={{ color: '#d63384', fontSize: '0.8rem' }}>{error}</p>}
 
       <div
@@ -155,18 +231,23 @@ export default function EditClothingForm({ item }: { item: ClothingItem }) {
       >
         <button
           onClick={handleSave}
-          disabled={!name.trim() || saving}
+          disabled={!name.trim() || tpoTags.length === 0 || seasonTags.length === 0 || saving}
           style={{
             width: '100%',
             padding: 14,
             background:
-              name.trim() && !saving ? 'linear-gradient(135deg, #E8A0BF, #C4779B)' : '#ddd',
+              name.trim() && tpoTags.length > 0 && seasonTags.length > 0 && !saving
+                ? 'linear-gradient(135deg, #E8A0BF, #C4779B)'
+                : '#ddd',
             color: '#fff',
             border: 'none',
             borderRadius: 16,
             fontSize: '1rem',
             fontWeight: 700,
-            cursor: name.trim() && !saving ? 'pointer' : 'not-allowed',
+            cursor:
+              name.trim() && tpoTags.length > 0 && seasonTags.length > 0 && !saving
+                ? 'pointer'
+                : 'not-allowed',
           }}
         >
           {saving ? '保存中…' : '保存'}

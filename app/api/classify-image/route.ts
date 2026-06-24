@@ -42,8 +42,8 @@ const PROMPT = `あなたはファッション分類の専門家です。送ら�
   "brand": "ブランドが写ってる場合のみ（UNIQLO/GU/ZARA 等）。判別不能なら空文字列",
   "category": "tops | bottoms | outerwear | shoes | bag | accessory | dress | other のいずれか",
   "color": "ホワイト / ブラック / グレー / ネイビー / ブルー / レッド / ピンク / グリーン / イエロー / ブラウン / ベージュ / パープル / オレンジ / ボルドー のいずれか（最も近いもの）",
-  "tpoTags": ["casual | date | work | party | sport | formal のうち適切なもの 1〜3個"],
-  "seasonTags": ["spring | summer | autumn | winter のうち適切なもの 1〜3個"],
+  "tpoTags": ["casual | date | work | party | sport | formal のうち適切なもの 1〜3個（必須・最低1つ）"],
+  "seasonTags": ["spring | summer | autumn | winter | all のうち適切なもの（必須・最低1つ）。白T・無地デニム・無地カーディガン等の通年アイテムは ['all'] 1つだけにすると親切"],
   "material": "リネン / コットン / ウール / ナイロン / ポリエステル / シルク / カシミヤ / デニム / ニット / レザー / スウェット / ベロア / ツイード / 不明 のいずれか（最も近いもの）",
   "silhouette": "タイト / レギュラー / ルーズ / オーバーサイズ / Aライン / フレア / ストレート / スキニー / ワイド / 不明 のいずれか",
   "pattern": "無地 / ボーダー / ストライプ / チェック / 花柄 / ドット / アニマル / 迷彩 / ロゴ / グラフィック / 不明 のいずれか",
@@ -124,7 +124,12 @@ export async function POST(request: Request) {
       category: typeof parsed.category === 'string' ? parsed.category : undefined,
       color: typeof parsed.color === 'string' ? parsed.color : undefined,
       tpoTags: Array.isArray(parsed.tpoTags) ? parsed.tpoTags : undefined,
-      seasonTags: Array.isArray(parsed.seasonTags) ? parsed.seasonTags : undefined,
+      // 'all' が含まれていたら 4季節に展開（DB は spring/summer/autumn/winter で管理）
+      seasonTags: Array.isArray(parsed.seasonTags)
+        ? (parsed.seasonTags.includes('all')
+            ? ['spring', 'summer', 'autumn', 'winter']
+            : parsed.seasonTags)
+        : undefined,
       material: cleanField(parsed.material),
       silhouette: cleanField(parsed.silhouette),
       pattern: cleanField(parsed.pattern),

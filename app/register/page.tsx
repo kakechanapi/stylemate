@@ -33,6 +33,9 @@ const seasonOptions = [
   { id: 'winter', label: '❄️ 冬' },
 ]
 
+// 4季節すべて選択 ＝ オールシーズン
+const ALL_SEASONS = ['spring', 'summer', 'autumn', 'winter']
+
 // ソースIDをユーザー向けの表示名に
 function sourceLabel(id: string): string {
   if (id === 'rakuten') return '楽天'
@@ -280,6 +283,15 @@ export default function RegisterPage() {
 
   const handleSave = async () => {
     if (!name.trim()) return
+    // 必須化バリデーション：シーン・シーズンが空ならエラー
+    if (selectedTpo.length === 0) {
+      setSaveError('シーンを 1 つ以上選んでください')
+      return
+    }
+    if (seasonTags.length === 0) {
+      setSaveError('シーズンを 1 つ以上選んでください（通年なら「🌐 オールシーズン」）')
+      return
+    }
     setSaving(true)
     setSaveError('')
     const result = handleActionResult(
@@ -905,8 +917,13 @@ export default function RegisterPage() {
             </div>
             <div>
               <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
-                シーンタグ（複数選択可）
+                シーン <span style={{ color: '#C4779B' }}>*</span>
                 {autoFilled.tpo && <AutoBadge />}
+                {selectedTpo.length === 0 && (
+                  <span style={{ color: '#d63384', fontSize: '0.7rem', marginLeft: 8, fontWeight: 500 }}>
+                    1つ以上必須
+                  </span>
+                )}
               </label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {tpoOptions.map(t => (
@@ -930,9 +947,43 @@ export default function RegisterPage() {
             </div>
             <div>
               <label style={{ fontSize: '0.8rem', color: '#888', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
-                シーズン（複数選択可）
+                シーズン <span style={{ color: '#C4779B' }}>*</span>
                 {autoFilled.season && <AutoBadge />}
+                {seasonTags.length === 0 && (
+                  <span style={{ color: '#d63384', fontSize: '0.7rem', marginLeft: 8, fontWeight: 500 }}>
+                    1つ以上必須
+                  </span>
+                )}
               </label>
+              {/* オールシーズンクイックトグル */}
+              <div style={{ marginBottom: 8 }}>
+                {(() => {
+                  const isAll = ALL_SEASONS.every(s => seasonTags.includes(s))
+                  return (
+                    <button
+                      onClick={() => {
+                        setTouched(prev => ({ ...prev, season: true }))
+                        setAutoFilled(prev => ({ ...prev, season: false }))
+                        // オールシーズン ON → 4つ全部 / OFF → 全部解除
+                        setSeasonTags(isAll ? [] : [...ALL_SEASONS])
+                      }}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: 20,
+                        border: `2px solid ${isAll ? '#C4779B' : '#eee'}`,
+                        background: isAll ? 'linear-gradient(135deg, #FFF0F6, #FFE4F0)' : '#fff',
+                        color: isAll ? '#C4779B' : '#888',
+                        fontSize: '0.82rem',
+                        fontWeight: isAll ? 700 : 600,
+                        cursor: 'pointer',
+                        width: '100%',
+                      }}
+                    >
+                      🌐 オールシーズン{isAll ? '（選択中）' : '（白T・無地デニム等の通年アイテム）'}
+                    </button>
+                  )
+                })()}
+              </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {seasonOptions.map(s => (
                   <button
@@ -961,7 +1012,7 @@ export default function RegisterPage() {
             )}
             <button
               onClick={handleSave}
-              disabled={!name.trim() || saving || saved}
+              disabled={!name.trim() || selectedTpo.length === 0 || seasonTags.length === 0 || saving || saved}
               style={{
                 background: saved
                   ? 'linear-gradient(135deg, #6ee7b7, #34d399)'
@@ -971,7 +1022,7 @@ export default function RegisterPage() {
                 padding: '16px',
                 fontWeight: 700,
                 fontSize: '1rem',
-                opacity: !name.trim() ? 0.5 : 1,
+                opacity: (!name.trim() || selectedTpo.length === 0 || seasonTags.length === 0) ? 0.5 : 1,
                 transition: 'all 0.3s',
                 marginTop: '8px',
               }}
