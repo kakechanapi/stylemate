@@ -23,14 +23,14 @@ interface Section {
 }
 
 // ─── 表示内容（編集ポイント） ───
-const LAST_UPDATED = '2026-06-13'
+const LAST_UPDATED = '2026-06-26'
 
 // 直近の "今やってること / 次やること" を一目で
 const NOW_DOING = {
-  title: 'UX磨き + 楽天検索が稼働開始',
-  subtitle: '楽天API の新仕様（2026-04-01）に対応。本物の商品検索がローカルで動作確認済。Yahoo は制限解除待ち',
-  current: 'Vercel 本番への RAKUTEN_APPLICATION_ID 環境変数追加 → 本番反映',
-  next: 'Yahoo API 制限解除を待ちつつ、オンボーディング / 利用規約 などの公開準備へ',
+  title: 'AIコーデ提案の精度が大幅UP（3案提案+ Vision + 詳細特徴）',
+  subtitle: '写真AI登録・3案提案UI・服の詳細特徴DB・女性ペルソナ強化・シーン/シーズン必須化まで完成。クローゼットが充実すれば AI コーデが本格的に使えるレベルに',
+  current: 'AI コーデ精度UPの磨き込み（女性ペルソナ前提・透け対策・タイツ提案等）',
+  next: 'オンボーディング画面 / 利用規約・プライバシーポリシー暫定版 で公開準備に進む',
 }
 
 const sections: Section[] = [
@@ -48,16 +48,20 @@ const sections: Section[] = [
   {
     title: 'クローゼット管理',
     emoji: '👔',
-    percent: 95,
+    percent: 100,
     items: [
       { label: '服の登録（手動）', status: 'done' },
-      { label: '楽天/Yahoo検索から登録', status: 'in-progress', note: 'マルチソース基盤完成・API繋ぎ込み待ち' },
-      { label: '商品名から自動判定（カテゴリ・色・シーン・シーズン）', status: 'done', note: '新規' },
+      { label: '楽天検索から登録', status: 'done', note: '✨稼働中・性別ジャンル絞り＋ノイズ除外' },
+      { label: '📷 写真AI登録', status: 'done', note: '✨新規・Gemini Vision で詳細特徴まで自動抽出' },
+      { label: '商品名から自動判定（カテゴリ・色・シーン・シーズン）', status: 'done' },
       { label: '画像アップロード', status: 'done', note: 'Supabase Storage' },
-      { label: '外部画像の自前ストレージ永続化', status: 'done', note: '新規・外部側で消えても残る' },
+      { label: '外部画像の自前ストレージ永続化', status: 'done', note: '外部側で消えても残る' },
       { label: 'カテゴリフィルタ（即時切替）', status: 'done' },
       { label: '編集・削除（長押し）', status: 'done' },
-      { label: '服削除→着用記録の整合性自動維持', status: 'done', note: '新規' },
+      { label: '服削除→着用記録の整合性自動維持', status: 'done' },
+      { label: 'シーン・シーズン必須化', status: 'done', note: '✨新規・AI 提案破綻防止' },
+      { label: '🌐 オールシーズン選択肢', status: 'done', note: '✨新規・通年アイテム用' },
+      { label: '服の詳細特徴 DB（素材・透け感等8項目）', status: 'done', note: '✨新規・migration 0009' },
     ],
   },
   {
@@ -86,10 +90,17 @@ const sections: Section[] = [
     ],
   },
   {
-    title: 'AI コーデ提案',
+    title: 'AI コーデ提案（核機能）',
     emoji: '🤖',
     percent: 100,
     items: [
+      { label: '✨ 3案提案 UI（A/B/C 案から選ぶ）', status: 'done', note: '✨新規・各案にテーマ名' },
+      { label: '✨ 構成パターン選択型（ワンピ完結/トップス+ボトムス/セットアップ）', status: 'done', note: '✨新規' },
+      { label: '✨ Gemini Vision で画像認識', status: 'done', note: '✨新規・色合わせ判断' },
+      { label: '✨ 服の詳細特徴反映（素材・透け感等）', status: 'done', note: '✨新規・DB から読む' },
+      { label: '✨ 女性ペルソナ専用ロジック', status: 'done', note: '✨新規・透け対策・キャミ・タイツ提案' },
+      { label: '✨ 不足カテゴリ可視化', status: 'done', note: '✨新規・「ボトムス未登録」案内' },
+      { label: '✨ 直近1週間の被り回避', status: 'done', note: '✨新規・マンネリ防止' },
       { label: '天気・シーン 考慮', status: 'done' },
       { label: '服装指数 反映', status: 'done' },
       { label: '性別・体型・身長 反映', status: 'done' },
@@ -98,11 +109,11 @@ const sections: Section[] = [
       { label: '好み（スワイプ学習）', status: 'done' },
       { label: '中身レイヤー提案', status: 'done', note: 'ヒートテック+白T+カーディガン等' },
       { label: '503エラー自動リトライ + フォールバック', status: 'done' },
-      { label: '画像コラージュ表示（着たイメージ Preview）', status: 'done', note: '新規' },
-      { label: 'アイテム単位の固定/却下ボタン', status: 'done', note: '新規・好み学習と連携' },
-      { label: '却下したアイテムだけ差し替え再提案', status: 'done', note: '新規' },
-      { label: '今日の服に決定→outfits自動保存', status: 'done', note: '新規' },
-      { label: '提案の永続化（タブ切替で消えない）', status: 'done', note: '新規・localStorage' },
+      { label: '画像コラージュ表示（着たイメージ Preview）', status: 'done' },
+      { label: 'アイテム単位の固定/却下ボタン', status: 'done', note: '好み学習と連携' },
+      { label: '却下したアイテムだけ差し替え再提案', status: 'done' },
+      { label: '今日の服に決定→outfits自動保存', status: 'done', note: '✨ JST 化済（日付バグ修正）' },
+      { label: '提案の永続化（タブ切替で消えない）', status: 'done', note: 'localStorage' },
     ],
   },
   {
