@@ -162,3 +162,99 @@ ${dislikedSwipes.length > 0
     return { ok: false, error: e instanceof Error ? e.message : '不明なエラー' }
   }
 }
+
+/**
+ * コーデ決定時の学習フィードバック。
+ * - 採用したコーデの各服 → LIKE として style_swipes に記録（source: 'outfit_confirm'）
+ * - A/B/C で採用されなかった案の各服 → NOPE として記録（source: 'outfit_unchosen'）
+ *   ただし採用案にも含まれる服は除外（同じ服が複数案で提案された場合の保護）
+ *
+ * これによりスワイプ画面でなくても、毎日の「決定」が学習データになる。
+ * 5件の決定でだいたい style_profiles が自動更新されるタイミングに乗る。
+ */
+export async function recordOutfitChoice(input: {
+  chosen_cloth_ids: string[]
+  rejected_cloth_ids?: string[]
+}): Promise<{ ok: boolean; liked: number; noped: number; error?: string }> {
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, liked: 0, noped: 0, error: 'not authenticated' }
+
+  const chosen = Array.from(new Set(input.chosen_cloth_ids || []))
+  const rejectedRaw = Array.from(new Set(input.rejected_cloth_ids || []))
+  // 採用案にも含まれる服は NOPE から除外（複数案で重複提案された服は保護）
+  const chosenSet = new Set(chosen)
+  const rejected = rejectedRaw.filter((id) => !chosenSet.has(id))
+
+  if (chosen.length === 0 && rejected.length === 0) {
+    return { ok: true, liked: 0, noped: 0 }
+  }
+
+  // 必要な服の情報を一括取得（image_url 必須 = style_swipes の NOT NULL 制約）
+  const allIds = Array.from(new Set([...chosen, ...rejected]))
+  const { data: clothes, error: fetchErr } = await supabase
+    .from('clothes')
+    .select('id, name, brand, image_url')
+    .in('id', allIds)
+    .eq('user_id', user.id)
+  if (fetchErr) {
+    return { ok: false, liked: 0, noped: 0, error: fetchErr.message }
+  }
+
+  // 画像なし服は学習に使えない（image_url が NOT NULL なので insert で失敗する）
+  const byId = new Map(
+    (clothes || [])
+      .filter((c) => c.image_url)
+      .map((c) => [c.id as string, c])
+  )
+
+  const rows: Array<{
+    user_id: string
+    image_url: string
+    item_name: string | null
+    brand: string | null
+    liked: boolean
+    source: string
+  }> = []
+
+  for (const id of chosen) {
+    const c = byId.get(id)
+    if (!c) continue
+    rows.push({
+      user_id: user.id,
+      image_url: c.image_url as string,
+      item_name: (c.name as string) || null,
+      brand: (c.brand as string) || null,
+      liked: true,
+      source: 'outfit_confirm',
+    })
+  }
+  for (const id of rejected) {
+    const c = byId.get(id)
+    if (!c) continue
+    rows.push({
+      user_id: user.id,
+      image_url: c.image_url as string,
+      item_name: (c.name as string) || null,
+      brand: (c.brand as string) || null,
+      liked: false,
+      source: 'outfit_unchosen',
+    })
+  }
+
+  if (rows.length === 0) return { ok: true, liked: 0, noped: 0 }
+
+  const { error: insertErr } = await supabase.from('style_swipes').insert(rows)
+  if (insertErr) {
+    console.error('[lib/style] recordOutfitChoice insert error:', insertErr.message)
+    return { ok: false, liked: 0, noped: 0, error: insertErr.message }
+  }
+
+  return {
+    ok: true,
+    liked: rows.filter((r) => r.liked).length,
+    noped: rows.filter((r) => !r.liked).length,
+  }
+}

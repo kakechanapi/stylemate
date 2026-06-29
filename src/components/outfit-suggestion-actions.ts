@@ -5,7 +5,7 @@
 // - 今日のコーデに決定 → outfits テーブルに保存
 // - リセット → 今日の outfit を削除して再提案フローへ戻す
 
-import { recordSwipe } from '@/lib/style'
+import { recordSwipe, recordOutfitChoice } from '@/lib/style'
 import { createOutfit, deleteOutfit } from '@/lib/outfits'
 import { toJSTDateStr } from '@/lib/date-helpers'
 import { revalidatePath } from 'next/cache'
@@ -27,6 +27,9 @@ export async function recordOutfitSwipeAction(input: {
 
 export async function confirmTodayOutfitAction(input: {
   cloth_ids: string[]
+  // A/B/C のうち選ばれなかった案の服ID（学習用）。
+  // ここに渡された服は NOPE として記録される（採用案に含まれる重複は除外）
+  unchosen_cloth_ids?: string[]
   tpo?: string
   weather?: string
   temperature?: number
@@ -44,6 +47,12 @@ export async function confirmTodayOutfitAction(input: {
     temperature: input.temperature,
   })
   if (result.ok) {
+    // 学習フィードバック：採用コーデは LIKE、不採用案は NOPE で記録。
+    // 失敗してもコーデ確定自体は成功扱いにする（学習はベストエフォート）
+    void recordOutfitChoice({
+      chosen_cloth_ids: input.cloth_ids,
+      rejected_cloth_ids: input.unchosen_cloth_ids,
+    }).catch((e) => console.error('[confirmTodayOutfit] learning record failed:', e))
     revalidatePath('/')
     revalidatePath('/events')
   }

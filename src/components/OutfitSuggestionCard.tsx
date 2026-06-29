@@ -285,8 +285,14 @@ export default function OutfitSuggestionCard({
     setConfirmError('')
     // 固定 or pending のアイテムを保存（却下は除く）
     const clothIds = suggestion.itemIds.filter((id) => itemStatus[id] !== 'rejected')
+    // 学習用：採用案以外の案の itemIds を「不採用」として記録（NOPE 学習）。
+    // 採用案にも含まれる服は server 側で自動除外される
+    const unchosenIds = suggestions
+      .filter((_, i) => i !== selectedIndex)
+      .flatMap((s) => s.itemIds || [])
     const result = await confirmTodayOutfitAction({
       cloth_ids: clothIds,
+      unchosen_cloth_ids: unchosenIds,
       tpo,
       weather: lastWeather?.description,
       temperature: lastWeather?.temperature,
