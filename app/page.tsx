@@ -5,6 +5,7 @@ import { listClothes } from '@/lib/clothes'
 import { listEvents } from '@/lib/events'
 import { listFriends } from '@/lib/friends'
 import { listOutfits } from '@/lib/outfits'
+import { checkAdmin } from '@/lib/admin'
 import HomeClient from './HomeClient'
 import CapWarningBanner from '@/components/CapWarningBanner'
 
@@ -18,12 +19,13 @@ export default async function HomePage() {
 
   // 全てのデータ取得を並列化（user 含む）
   const supabase = await createSupabaseServerClient()
-  const [userRes, clothes, upcomingEvents, friends, todayOutfits] = await Promise.all([
+  const [userRes, clothes, upcomingEvents, friends, todayOutfits, admin] = await Promise.all([
     supabase.auth.getUser(),
     listClothes(),
     listEvents({ from: now.toISOString(), to: tomorrowEnd.toISOString(), limit: 3 }),
     listFriends(),
     listOutfits({ from: todayStr, to: todayStr }),
+    checkAdmin(),
   ])
 
   const user = userRes.data.user
@@ -47,6 +49,7 @@ export default async function HomePage() {
         upcomingEvents={upcomingEvents}
         friendNames={friendNames}
         todayOutfit={todayOutfit}
+        isAdmin={admin.isAdmin}
       />
     </>
   )

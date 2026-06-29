@@ -35,6 +35,14 @@ interface Props {
   todayOutfit?: Outfit | null
   // 表示用のシーン名（予定が選ばれていればその予定名、なければ TPO ラベルから自動算出）
   sceneLabel?: string
+  // 管理者かどうか。コーデ試着ベータ機能のボタン表示制御に使う
+  isAdmin?: boolean
+}
+
+interface TryonState {
+  status: 'idle' | 'loading' | 'succeeded' | 'failed'
+  resultUrl?: string
+  error?: string
 }
 
 // ドラフト（確定前の状態）を localStorage に保存するキー
@@ -60,6 +68,7 @@ export default function OutfitSuggestionCard({
   eventId,
   todayOutfit,
   sceneLabel,
+  isAdmin,
 }: Props) {
   // 表示用シーン名：明示指定があればそれ優先、なければ TPO から
   const displaySceneLabel = sceneLabel || SCENE_LABEL[tpo] || 'コーデ'
@@ -80,6 +89,16 @@ export default function OutfitSuggestionCard({
   const [resetting, setResetting] = useState(false)
   // ドラフトを localStorage から復元
   const [draftLoaded, setDraftLoaded] = useState(false)
+  // コーデ試着（自分姿）の結果。suggestions と同じ index で対応
+  const [tryonResults, setTryonResults] = useState<TryonState[]>([])
+  const [tryonError, setTryonError] = useState('')
+  // 3案リスト → 詳細モードに遷移しても結果を保持。新しい3案が来たら自動リセット
+  useEffect(() => {
+    setTryonResults((prev) => {
+      if (prev.length !== suggestions.length) return suggestions.map(() => ({ status: 'idle' }))
+      return prev
+    })
+  }, [suggestions])
 
   // 選択中の案（詳細モードで参照）
   const suggestion = selectedIndex !== null ? suggestions[selectedIndex] || null : null
@@ -276,6 +295,102 @@ export default function OutfitSuggestionCard({
       if (s === 'rejected') excludedIds.push(id)
     }
     fetchSuggestion({ fixedItemIds: fixedIds, excludedItemIds: excludedIds, fromDetailRefresh: true })
+  }
+
+  // 自分姿で試着（3案並列・管理者ベータ）
+  const handleTryon = async () => {
+    if (!isAdmin || suggestions.length === 0) return
+    setTryonError('')
+    // IndexedDB から自分写真取得（クライアント側でしか動かないのでこのタイミングで import）
+    const { loadSelfPhoto } = await import('@/lib/self-photo-db')
+    const photo = await loadSelfPhoto()
+    if (!photo) {
+      setTryonError('先にマイページから全身写真を登録してください。')
+      return
+    }
+    // 各案の代表服を選ぶ：トップス → ワンピース → 画像つき最初の服
+    const representatives = suggestions.map((s) => {
+      const list = s.itemIds
+        .map((id) => clothes.find((c) => c.id === id))
+        .filter((c): c is ClothingItem => !!c && !!c.image_url)
+      return (
+        list.find((c) => c.category === 'tops') ||
+        list.find((c) => c.category === 'dress') ||
+        list[0] ||
+        null
+      )
+    })
+    if (representatives.every((r) => !r)) {
+      setTryonError('試着できる画像つきの服が3案の中に見つかりません。')
+      return
+    }
+    // 全部 loading に
+    setTryonResults(suggestions.map((_, i) => (representatives[i] ? { status: 'loading' } : { status: 'idle' })))
+    // POST：image_url がある案だけ送る
+    const itemsForApi = representatives
+      .map((r, idx) => (r ? { _idx: idx, clothingImageUrl: r.image_url!, clothingId: r.id, garmentDescription: r.name } : null))
+      .filter((x): x is NonNullable<typeof x> => !!x)
+    try {
+      const res = await fetch('/api/coord-tryon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          humanImageBase64: photo,
+          items: itemsForApi.map((it) => ({
+            clothingImageUrl: it.clothingImageUrl,
+            clothingId: it.clothingId,
+            garmentDescription: it.garmentDescription,
+          })),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !Array.isArray(data.predictions)) {
+        setTryonError(data.userMessage || '試着開始に失敗しました')
+        setTryonResults((prev) => prev.map((x) => (x.status === 'loading' ? { status: 'failed' } : x)))
+        return
+      }
+      // predictions[i] は itemsForApi[i] に対応。元の suggestions index に戻す
+      type Pred = { caseIndex: number; predictionId: string | null }
+      const predictions = data.predictions as Pred[]
+      // 個別ポーリング（並列）
+      await Promise.all(
+        predictions.map(async (p, i) => {
+          const originalIdx = itemsForApi[i]._idx
+          if (!p.predictionId) {
+            setTryonResults((prev) => prev.map((x, k) => (k === originalIdx ? { status: 'failed' } : x)))
+            return
+          }
+          // 最大 60 秒、3秒間隔
+          for (let attempt = 0; attempt < 20; attempt++) {
+            await new Promise((r) => setTimeout(r, 3000))
+            try {
+              const pr = await fetch(`/api/coord-tryon?predictionId=${p.predictionId}`)
+              const pd = await pr.json()
+              if (pd.status === 'succeeded' && pd.resultUrl) {
+                setTryonResults((prev) =>
+                  prev.map((x, k) => (k === originalIdx ? { status: 'succeeded', resultUrl: pd.resultUrl } : x))
+                )
+                return
+              }
+              if (pd.status === 'failed' || pd.status === 'canceled') {
+                setTryonResults((prev) =>
+                  prev.map((x, k) => (k === originalIdx ? { status: 'failed', error: pd.error || '' } : x))
+                )
+                return
+              }
+            } catch {
+              // ネットワーク一過性なら継続
+            }
+          }
+          setTryonResults((prev) =>
+            prev.map((x, k) => (k === originalIdx ? { status: 'failed', error: 'タイムアウト' } : x))
+          )
+        })
+      )
+    } catch (e) {
+      setTryonError(e instanceof Error ? e.message : '試着に失敗しました')
+      setTryonResults((prev) => prev.map((x) => (x.status === 'loading' ? { status: 'failed' } : x)))
+    }
   }
 
   // 「今日の服に決定」
@@ -493,6 +608,10 @@ export default function OutfitSuggestionCard({
         onRefresh={() => fetchSuggestion()}
         missingCategories={missingCategories}
         sceneLabel={displaySceneLabel}
+        isAdmin={isAdmin}
+        tryonResults={tryonResults}
+        tryonError={tryonError}
+        onTryon={handleTryon}
       />
     )
   }
@@ -1034,6 +1153,10 @@ function SuggestionsListView({
   onRefresh,
   missingCategories,
   sceneLabel,
+  isAdmin,
+  tryonResults,
+  tryonError,
+  onTryon,
 }: {
   suggestions: OutfitSuggestion[]
   clothes: ClothingItem[]
@@ -1041,7 +1164,13 @@ function SuggestionsListView({
   onRefresh: () => void
   missingCategories: string[]
   sceneLabel?: string
+  isAdmin?: boolean
+  tryonResults?: TryonState[]
+  tryonError?: string
+  onTryon?: () => void
 }) {
+  const anyLoading = (tryonResults || []).some((r) => r.status === 'loading')
+  const anyDone = (tryonResults || []).some((r) => r.status === 'succeeded')
   return (
     <div
       style={{
@@ -1095,9 +1224,45 @@ function SuggestionsListView({
             suggestion={s}
             clothes={clothes}
             onClick={() => onSelect(idx)}
+            tryonResult={tryonResults?.[idx]}
           />
         ))}
       </div>
+
+      {/* コーデ試着（管理者ベータ） */}
+      {isAdmin && onTryon && (
+        <div style={{ marginTop: 14 }}>
+          <button
+            onClick={onTryon}
+            disabled={anyLoading}
+            style={{
+              width: '100%',
+              background: anyDone
+                ? '#fff'
+                : 'linear-gradient(135deg, #E8A0BF, #C4779B)',
+              color: anyDone ? '#C4779B' : '#fff',
+              border: anyDone ? '1.5px solid #E8A0BF' : 'none',
+              borderRadius: 18,
+              padding: 12,
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              cursor: anyLoading ? 'wait' : 'pointer',
+              opacity: anyLoading ? 0.6 : 1,
+            }}
+          >
+            {anyLoading
+              ? '🪄 試着画像を生成中…（30〜60秒）'
+              : anyDone
+              ? '🔄 もう一度試着する'
+              : '📸 自分で試着して比較（ベータ）'}
+          </button>
+          {tryonError && (
+            <p style={{ fontSize: '0.72rem', color: '#C44', marginTop: 6, textAlign: 'center' }}>
+              {tryonError}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* 全部やり直し */}
       <button
@@ -1125,11 +1290,13 @@ function SuggestionListItem({
   suggestion,
   clothes,
   onClick,
+  tryonResult,
 }: {
   index: number
   suggestion: OutfitSuggestion
   clothes: ClothingItem[]
   onClick: () => void
+  tryonResult?: TryonState
 }) {
   const items = (suggestion.itemIds || [])
     .map((id) => clothes.find((c) => c.id === id))
@@ -1191,6 +1358,64 @@ function SuggestionListItem({
           →
         </span>
       </div>
+
+      {/* 自分姿の試着結果（あれば優先表示） */}
+      {tryonResult && tryonResult.status !== 'idle' && (
+        <div
+          style={{
+            position: 'relative',
+            background: '#FFF0F6',
+            borderRadius: 10,
+            marginBottom: 10,
+            padding: 8,
+            minHeight: 220,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {tryonResult.status === 'loading' && (
+            <div style={{ textAlign: 'center', color: '#999', fontSize: '0.78rem' }}>
+              🪄 自分姿で生成中…
+            </div>
+          )}
+          {tryonResult.status === 'failed' && (
+            <div style={{ textAlign: 'center', color: '#C44', fontSize: '0.78rem' }}>
+              生成失敗{tryonResult.error ? `（${tryonResult.error}）` : ''}
+            </div>
+          )}
+          {tryonResult.status === 'succeeded' && tryonResult.resultUrl && (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={tryonResult.resultUrl}
+                alt={`${suggestion.theme || `案 ${index + 1}`} を着た姿`}
+                style={{
+                  width: '100%',
+                  maxHeight: 360,
+                  objectFit: 'contain',
+                  borderRadius: 8,
+                }}
+              />
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  left: 12,
+                  background: 'rgba(255,255,255,0.92)',
+                  color: '#993556',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  padding: '3px 8px',
+                  borderRadius: 999,
+                }}
+              >
+                自分姿
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* 画像コラージュ（小さめ） */}
       {items.length > 0 ? (

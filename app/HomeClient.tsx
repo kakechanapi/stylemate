@@ -13,9 +13,10 @@ interface Props {
   upcomingEvents: EventItem[]
   friendNames: Record<string, string>
   todayOutfit: Outfit | null
+  isAdmin?: boolean
 }
 
-export default function HomeClient({ clothes, userEmail, upcomingEvents, friendNames, todayOutfit }: Props) {
+export default function HomeClient({ clothes, userEmail, upcomingEvents, friendNames, todayOutfit, isAdmin }: Props) {
   const [tpo, setTpo] = useState('casual')
   const [selectedEventId, setSelectedEventId] = useState<string | null>(
     upcomingEvents[0]?.id || null
@@ -201,6 +202,7 @@ export default function HomeClient({ clothes, userEmail, upcomingEvents, friendN
           eventId={selectedEvent?.id}
           todayOutfit={todayOutfit}
           sceneLabel={selectedEvent ? selectedEvent.title : undefined}
+          isAdmin={isAdmin}
         />
       )}
 

@@ -5,6 +5,7 @@ import { getStyleProfile } from '@/lib/style'
 import { listFriends } from '@/lib/friends'
 import { checkAdmin } from '@/lib/admin'
 import { signOut } from '../auth/actions'
+import SelfPhotoRegister from '@/components/SelfPhotoRegister'
 
 // LoRA 状態バッジのスタイル
 const LORA_LABEL: Record<string, { text: string; color: string; bg: string }> = {
@@ -243,6 +244,9 @@ export default async function MyPage() {
           </div>
         )}
       </Link>
+
+      {/* ─── コーデ試着用の全身写真（管理者ベータ） ─── */}
+      <SelfPhotoRegister show={admin.isAdmin} />
 
       {/* ─── 嗜好カード ─── */}
       <Link
