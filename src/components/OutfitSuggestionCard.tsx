@@ -297,45 +297,59 @@ export default function OutfitSuggestionCard({
     fetchSuggestion({ fixedItemIds: fixedIds, excludedItemIds: excludedIds, fromDetailRefresh: true })
   }
 
-  // 自分姿で試着（3案並列・管理者ベータ）
-  const handleTryon = async () => {
+  // 自分姿で試着（管理者ベータ・プログレッシブ）
+  // targetIndexes 未指定 → デフォルト A 案のみ。コスト1/3に抑える。
+  // 「B/C も見比べる」では [1, 2] を渡す。
+  const handleTryon = async (targetIndexes?: number[]) => {
     if (!isAdmin || suggestions.length === 0) return
+    const indexes =
+      targetIndexes && targetIndexes.length > 0
+        ? targetIndexes.filter((i) => i >= 0 && i < suggestions.length)
+        : [0]
     setTryonError('')
-    // IndexedDB から自分写真取得（クライアント側でしか動かないのでこのタイミングで import）
     const { loadSelfPhoto } = await import('@/lib/self-photo-db')
     const photo = await loadSelfPhoto()
     if (!photo) {
       setTryonError('先にマイページから全身写真を登録してください。')
       return
     }
-    // 各案の代表服を選ぶ：トップス → ワンピース → 画像つき最初の服
-    const representatives = suggestions.map((s) => {
-      const list = s.itemIds
+    // 対象 indexes の代表服を選ぶ：トップス → ワンピース → 画像つき最初の服
+    const reps = indexes.map((idx) => {
+      const s = suggestions[idx]
+      const list = (s?.itemIds || [])
         .map((id) => clothes.find((c) => c.id === id))
         .filter((c): c is ClothingItem => !!c && !!c.image_url)
-      return (
-        list.find((c) => c.category === 'tops') ||
-        list.find((c) => c.category === 'dress') ||
-        list[0] ||
-        null
-      )
+      return {
+        idx,
+        rep:
+          list.find((c) => c.category === 'tops') ||
+          list.find((c) => c.category === 'dress') ||
+          list[0] ||
+          null,
+      }
     })
-    if (representatives.every((r) => !r)) {
-      setTryonError('試着できる画像つきの服が3案の中に見つかりません。')
+    const validReps = reps.filter((r) => r.rep)
+    if (validReps.length === 0) {
+      setTryonError('試着できる画像つきの服が見つかりません。')
       return
     }
-    // 全部 loading に
-    setTryonResults(suggestions.map((_, i) => (representatives[i] ? { status: 'loading' } : { status: 'idle' })))
-    // POST：image_url がある案だけ送る
-    const itemsForApi = representatives
-      .map((r, idx) => (r ? { _idx: idx, clothingImageUrl: r.image_url!, clothingId: r.id, garmentDescription: r.name } : null))
-      .filter((x): x is NonNullable<typeof x> => !!x)
+    // 対象 indexes だけを loading にする（他は触らない）
+    setTryonResults((prev) =>
+      prev.map((x, i) => (indexes.includes(i) ? { status: 'loading' } : x))
+    )
+    const itemsForApi = validReps.map((r) => ({
+      _idx: r.idx,
+      clothingImageUrl: r.rep!.image_url!,
+      clothingId: r.rep!.id,
+      garmentDescription: r.rep!.name,
+    }))
     try {
       const res = await fetch('/api/coord-tryon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          humanImageBase64: photo,
+          humanImageBase64: photo.base64,
+          photoVersion: photo.version,
           items: itemsForApi.map((it) => ({
             clothingImageUrl: it.clothingImageUrl,
             clothingId: it.clothingId,
@@ -346,25 +360,48 @@ export default function OutfitSuggestionCard({
       const data = await res.json()
       if (!res.ok || !Array.isArray(data.predictions)) {
         setTryonError(data.userMessage || '試着開始に失敗しました')
-        setTryonResults((prev) => prev.map((x) => (x.status === 'loading' ? { status: 'failed' } : x)))
+        setTryonResults((prev) =>
+          prev.map((x, i) => (indexes.includes(i) && x.status === 'loading' ? { status: 'failed' } : x))
+        )
         return
       }
-      // predictions[i] は itemsForApi[i] に対応。元の suggestions index に戻す
-      type Pred = { caseIndex: number; predictionId: string | null }
+      // predictions[i] は itemsForApi[i] と同順
+      type Pred = {
+        caseIndex: number
+        predictionId: string | null
+        status: string
+        resultUrl?: string
+        cached?: boolean
+        photoVersion?: number
+        clothingId?: string
+      }
       const predictions = data.predictions as Pred[]
-      // 個別ポーリング（並列）
+
       await Promise.all(
         predictions.map(async (p, i) => {
           const originalIdx = itemsForApi[i]._idx
-          if (!p.predictionId) {
-            setTryonResults((prev) => prev.map((x, k) => (k === originalIdx ? { status: 'failed' } : x)))
+          // キャッシュヒット → 即 succeeded
+          if (p.cached && p.resultUrl) {
+            setTryonResults((prev) =>
+              prev.map((x, k) => (k === originalIdx ? { status: 'succeeded', resultUrl: p.resultUrl } : x))
+            )
             return
           }
-          // 最大 60 秒、3秒間隔
+          if (!p.predictionId) {
+            setTryonResults((prev) =>
+              prev.map((x, k) => (k === originalIdx ? { status: 'failed' } : x))
+            )
+            return
+          }
+          const photoVersion = p.photoVersion ?? photo.version
+          const clothingId = p.clothingId ?? itemsForApi[i].clothingId
+          // 最大 60 秒ポーリング、3秒間隔
           for (let attempt = 0; attempt < 20; attempt++) {
             await new Promise((r) => setTimeout(r, 3000))
             try {
-              const pr = await fetch(`/api/coord-tryon?predictionId=${p.predictionId}`)
+              const pr = await fetch(
+                `/api/coord-tryon?predictionId=${encodeURIComponent(p.predictionId)}&photoVersion=${photoVersion}&clothingId=${encodeURIComponent(clothingId)}`
+              )
               const pd = await pr.json()
               if (pd.status === 'succeeded' && pd.resultUrl) {
                 setTryonResults((prev) =>
@@ -389,7 +426,9 @@ export default function OutfitSuggestionCard({
       )
     } catch (e) {
       setTryonError(e instanceof Error ? e.message : '試着に失敗しました')
-      setTryonResults((prev) => prev.map((x) => (x.status === 'loading' ? { status: 'failed' } : x)))
+      setTryonResults((prev) =>
+        prev.map((x, i) => (indexes.includes(i) && x.status === 'loading' ? { status: 'failed' } : x))
+      )
     }
   }
 
@@ -1167,10 +1206,16 @@ function SuggestionsListView({
   isAdmin?: boolean
   tryonResults?: TryonState[]
   tryonError?: string
-  onTryon?: () => void
+  onTryon?: (indexes?: number[]) => void
 }) {
-  const anyLoading = (tryonResults || []).some((r) => r.status === 'loading')
-  const anyDone = (tryonResults || []).some((r) => r.status === 'succeeded')
+  const results = tryonResults || []
+  const anyLoading = results.some((r) => r.status === 'loading')
+  const aDone = results[0]?.status === 'succeeded'
+  const bcIdle = (results[1]?.status === 'idle' || !results[1]) && (results[2]?.status === 'idle' || !results[2])
+  const restIndexes = suggestions.map((_, i) => i).filter((i) => i > 0)
+  // フェーズ判定：「まだ何もしてない」「A 案完了済で B/C 未生成」「全部完了 or 一部失敗」
+  const phase: 'initial' | 'after-a' | 'all-done' =
+    !aDone ? 'initial' : aDone && bcIdle && restIndexes.length > 0 ? 'after-a' : 'all-done'
   return (
     <div
       style={{
@@ -1229,19 +1274,24 @@ function SuggestionsListView({
         ))}
       </div>
 
-      {/* コーデ試着（管理者ベータ） */}
+      {/* コーデ試着（管理者ベータ・プログレッシブ） */}
       {isAdmin && onTryon && (
         <div style={{ marginTop: 14 }}>
           <button
-            onClick={onTryon}
+            onClick={() => {
+              if (phase === 'after-a') onTryon(restIndexes)
+              else if (phase === 'all-done') onTryon([0])
+              else onTryon([0])
+            }}
             disabled={anyLoading}
             style={{
               width: '100%',
-              background: anyDone
-                ? '#fff'
-                : 'linear-gradient(135deg, #E8A0BF, #C4779B)',
-              color: anyDone ? '#C4779B' : '#fff',
-              border: anyDone ? '1.5px solid #E8A0BF' : 'none',
+              background:
+                phase === 'all-done'
+                  ? '#fff'
+                  : 'linear-gradient(135deg, #E8A0BF, #C4779B)',
+              color: phase === 'all-done' ? '#C4779B' : '#fff',
+              border: phase === 'all-done' ? '1.5px solid #E8A0BF' : 'none',
               borderRadius: 18,
               padding: 12,
               fontWeight: 700,
@@ -1252,10 +1302,17 @@ function SuggestionsListView({
           >
             {anyLoading
               ? '🪄 試着画像を生成中…（30〜60秒）'
-              : anyDone
-              ? '🔄 もう一度試着する'
-              : '📸 自分で試着して比較（ベータ）'}
+              : phase === 'after-a'
+              ? `📸 B / C も試着して見比べる（+${restIndexes.length * 16}円）`
+              : phase === 'all-done'
+              ? '🔄 A 案を試着し直す'
+              : '📸 自分で試着して見る（A 案・16円）'}
           </button>
+          {phase === 'initial' && !anyLoading && (
+            <p style={{ fontSize: '0.66rem', color: '#999', marginTop: 4, textAlign: 'center' }}>
+              まず A 案だけ試着 → 気になれば B / C も追加生成
+            </p>
+          )}
           {tryonError && (
             <p style={{ fontSize: '0.72rem', color: '#C44', marginTop: 6, textAlign: 'center' }}>
               {tryonError}

@@ -54,7 +54,7 @@ export default function SelfPhotoRegister({ show }: Props) {
     }
     void (async () => {
       const p = await loadSelfPhoto()
-      setPhoto(p)
+      setPhoto(p?.base64 || null)
       setLoaded(true)
     })()
   }, [show])
