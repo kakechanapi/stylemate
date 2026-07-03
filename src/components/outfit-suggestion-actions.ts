@@ -7,6 +7,7 @@
 
 import { recordSwipe, recordOutfitChoice } from '@/lib/style'
 import { createOutfit, deleteOutfit } from '@/lib/outfits'
+import { logEvent } from '@/lib/app-events'
 import { toJSTDateStr } from '@/lib/date-helpers'
 import { revalidatePath } from 'next/cache'
 
@@ -58,6 +59,11 @@ export async function confirmTodayOutfitAction(input: {
     } catch (e) {
       console.error('[confirmTodayOutfit] learning record failed:', e)
     }
+    // 計測：決定はコア体験の成功指標（提案→決定率）
+    await logEvent('outfit_confirmed', {
+      itemCount: input.cloth_ids.length,
+      tpo: input.tpo,
+    })
     revalidatePath('/')
     revalidatePath('/events')
   }

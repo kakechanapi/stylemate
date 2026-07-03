@@ -2,6 +2,7 @@
 // RLS により auth.uid() = user_id しか触れない。
 
 import { createSupabaseServerClient } from './supabase/server'
+import { logEvent } from './app-events'
 import type { ClothingItem, Category } from '@/types/fashion'
 
 export async function listClothes(filter?: { category?: Category }): Promise<ClothingItem[]> {
@@ -87,6 +88,12 @@ export async function createClothing(input: NewClothing): Promise<{ ok: boolean;
     console.error('[lib/clothes] create error:', error.message)
     return { ok: false, error: error.message }
   }
+  // 計測：登録着数はオンボーディング離脱分析の主要指標
+  await logEvent('cloth_registered', {
+    category: input.category,
+    hasImage: !!input.image_url,
+    fromProduct: !!input.product_url,
+  })
   return { ok: true }
 }
 

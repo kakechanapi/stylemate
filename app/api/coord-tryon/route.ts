@@ -17,6 +17,7 @@ import Replicate from 'replicate'
 import { createHash } from 'crypto'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { checkAdmin } from '@/lib/admin'
+import { logEvent } from '@/lib/app-events'
 import {
   assertWithinMonthlyCap,
   logUsage,
@@ -242,6 +243,12 @@ export async function POST(request: NextRequest) {
         }
       })
     )
+
+    // 計測：試着体験の利用状況（キャッシュヒット率＝実コスト分析にも使う）
+    await logEvent('tryon_generated', {
+      requested: results.length,
+      cached: results.filter((r) => 'cached' in r && r.cached).length,
+    })
 
     return NextResponse.json({ predictions: results })
   } catch (err) {

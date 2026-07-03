@@ -1306,43 +1306,38 @@ function SuggestionsListView({
         ))}
       </div>
 
-      {/* コーデ試着（管理者ベータ・プログレッシブ） */}
+      {/* コーデ試着（管理者ベータ・プログレッシブ）
+          コピーは実態（トップス or ワンピース1点の合成）に忠実にする。
+          「コーデ全体を着た姿」と期待させると初回でがっかりされるため */}
       {isAdmin && onTryon && (
         <div style={{ marginTop: 14 }}>
-          <button
-            onClick={() => {
-              if (phase === 'after-a') onTryon(restIndexes)
-              else if (phase === 'all-done') onTryon([0])
-              else onTryon([0])
-            }}
-            disabled={anyLoading}
-            style={{
-              width: '100%',
-              background:
-                phase === 'all-done'
-                  ? '#fff'
-                  : 'linear-gradient(135deg, #E8A0BF, #C4779B)',
-              color: phase === 'all-done' ? '#C4779B' : '#fff',
-              border: phase === 'all-done' ? '1.5px solid #E8A0BF' : 'none',
-              borderRadius: 18,
-              padding: 12,
-              fontWeight: 700,
-              fontSize: '0.88rem',
-              cursor: anyLoading ? 'wait' : 'pointer',
-              opacity: anyLoading ? 0.6 : 1,
-            }}
-          >
-            {anyLoading
-              ? '🪄 試着画像を生成中…（30〜60秒）'
-              : phase === 'after-a'
-              ? `📸 B / C も試着して見比べる（+${restIndexes.length * TRYON_COST_JPY}円）`
-              : phase === 'all-done'
-              ? '🔄 A 案を試着し直す'
-              : `📸 自分で試着して見る（A 案・${TRYON_COST_JPY}円）`}
-          </button>
+          {phase !== 'all-done' && (
+            <button
+              onClick={() => onTryon(phase === 'after-a' ? restIndexes : [0])}
+              disabled={anyLoading}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #E8A0BF, #C4779B)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 18,
+                padding: 12,
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                cursor: anyLoading ? 'wait' : 'pointer',
+                opacity: anyLoading ? 0.6 : 1,
+              }}
+            >
+              {anyLoading
+                ? '🪄 あなたの姿を生成中…（30〜60秒）'
+                : phase === 'after-a'
+                ? `📸 B / C のトップスも見比べる（+${restIndexes.length * TRYON_COST_JPY}円）`
+                : `📸 A案のトップスを自分の姿で見る（${TRYON_COST_JPY}円）`}
+            </button>
+          )}
           {phase === 'initial' && !anyLoading && (
-            <p style={{ fontSize: '0.66rem', color: '#999', marginTop: 4, textAlign: 'center' }}>
-              まず A 案だけ試着 → 気になれば B / C も追加生成
+            <p style={{ fontSize: '0.66rem', color: '#999', marginTop: 4, textAlign: 'center', lineHeight: 1.6 }}>
+              コーデの主役（トップス or ワンピース）1点を、登録した全身写真に合成します
             </p>
           )}
           {tryonError && (

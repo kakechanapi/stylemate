@@ -4,6 +4,7 @@
 // - スワイプで学習したユーザー嗜好を自動付与
 
 import { NextResponse } from 'next/server'
+import { logEvent } from '@/lib/app-events'
 import { generateOutfitSuggestion } from '@/lib/gemini'
 import { recentClothesWithFriends } from '@/lib/events'
 import { recentlyWornClothIds } from '@/lib/outfits'
@@ -87,6 +88,13 @@ export async function POST(request: Request) {
     fixedItemIds: Array.isArray(body.fixedItemIds) ? body.fixedItemIds : undefined,
     excludedItemIds: Array.isArray(body.excludedItemIds) ? body.excludedItemIds : undefined,
     me: meContext,
+  })
+  // 計測：提案生成（クローゼット規模別の提案品質・ファネル分析用）
+  await logEvent('outfit_suggested', {
+    clothesCount: Array.isArray(body.clothes) ? body.clothes.length : 0,
+    suggestionCount: result.suggestions?.length || 0,
+    tpo,
+    hasEvent: !!body.eventId,
   })
   return NextResponse.json({ ...result, recentClothIds, scheduleTitle, styleTags })
 }
