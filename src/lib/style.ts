@@ -153,7 +153,9 @@ ${unchosenSwipes.length > 0
 タグは合計 3〜5個に絞る。最低 1個は系統、1個はカラー or 柄、1個はシルエット or テイストを含めること。`
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
+    // テキストのみの軽いタスクなので flash-lite で十分（2.5 Flash の 1/3 単価）。
+    // -latest エイリアスは世代交代で単価が跳ねるため使わない
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })
     const result = await model.generateContent(prompt)
     const text = result.response.text()
     // 使用ログ（void は Vercel で実行保証がないため await）

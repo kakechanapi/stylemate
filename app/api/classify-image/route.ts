@@ -12,7 +12,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { logUsage } from '@/lib/usage-cost'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
-const MODEL = 'gemini-flash-latest'
+// -latest エイリアスは世代交代で単価が跳ねるためバージョン固定（画像1枚の分類タスク）
+const MODEL = 'gemini-2.5-flash'
 
 export interface ClassifyImageResponse {
   ok: boolean

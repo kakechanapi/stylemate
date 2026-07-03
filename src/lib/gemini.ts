@@ -413,8 +413,11 @@ ${clothesSummary || '（まだ服が登録されていません）'}${closetStat
  * - プライマリ全滅したら別モデル (フォールバック) で同様に再試行
  * - それでもダメなら最後のエラーを throw
  */
-const PRIMARY_MODEL = 'gemini-flash-latest'
-const FALLBACK_MODEL = 'gemini-2.0-flash' // 安定運用のためのフォールバック
+// モデルはバージョン固定する。'gemini-flash-latest' エイリアスは Google の
+// 世代交代（例：2.5 Flash $0.30/M → 3.5 Flash $1.50/M）で単価が勝手に5倍になるため使わない。
+// 単価を変える時は usage-cost-constants.ts の SERVICE_COSTS_JPY も合わせて見直すこと。
+const PRIMARY_MODEL = 'gemini-2.5-flash'
+const FALLBACK_MODEL = 'gemini-2.5-flash-lite' // 安定運用のためのフォールバック
 const MAX_RETRIES = 3
 
 async function tryGeminiModel(
