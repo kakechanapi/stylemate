@@ -6,16 +6,15 @@ import { listEvents } from '@/lib/events'
 import { listFriends } from '@/lib/friends'
 import { listOutfits } from '@/lib/outfits'
 import { checkAdmin } from '@/lib/admin'
+import { toJSTDateStr, jstDateStrDaysAgo } from '@/lib/date-helpers'
 import HomeClient from './HomeClient'
 import CapWarningBanner from '@/components/CapWarningBanner'
 
 export default async function HomePage() {
   const now = new Date()
-  const tomorrowEnd = new Date(now)
-  tomorrowEnd.setDate(tomorrowEnd.getDate() + 1)
-  tomorrowEnd.setHours(23, 59, 59, 999)
-
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  // Vercel は UTC なので「今日」「明日の終わり」は必ず JST 基準で計算する
+  const todayStr = toJSTDateStr()
+  const tomorrowEnd = new Date(`${jstDateStrDaysAgo(-1)}T23:59:59+09:00`)
 
   // 全てのデータ取得を並列化（user 含む）
   const supabase = await createSupabaseServerClient()

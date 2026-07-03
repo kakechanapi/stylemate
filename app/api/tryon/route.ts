@@ -86,7 +86,8 @@ export async function POST(request: NextRequest) {
     })
 
     // 使用ログ記録（試着開始時点で課金確定するため、ここで残す）
-    void logUsage({
+    // void だと Vercel のレスポンス後凍結で記録が欠落しうる（上限管理の穴）→ await
+    await logUsage({
       service: 'replicate_tryon',
       operation: 'predictions.create',
       externalId: prediction.id,

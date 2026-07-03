@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ClothingItem, Outfit } from '@/types/fashion'
 import { SCENE_LABEL } from './TPOSelector'
+import { SERVICE_COSTS_JPY } from '@/lib/usage-cost-constants'
 import {
   recordOutfitSwipeAction,
   confirmTodayOutfitAction,
@@ -47,6 +48,9 @@ interface TryonState {
 
 // ドラフト（確定前の状態）を localStorage に保存するキー
 const DRAFT_KEY = 'stylemate:outfit-draft'
+
+// 試着1回の単価（円）。UI 表示は必ずここから導出する（ハードコード禁止）
+const TRYON_COST_JPY = SERVICE_COSTS_JPY.replicate_tryon
 
 interface DraftPayload {
   date: string // YYYY-MM-DD
@@ -207,6 +211,11 @@ export default function OutfitSuggestionCard({
       const list = Array.isArray(data.suggestions) ? data.suggestions : []
       setSuggestions(list)
       setMissingCategories(data.missingCategories || [])
+      // 新しい提案が来たら試着結果は必ずリセットする。
+      // 長さ比較の useEffect だけだと「3案→別の3案」で前の自分姿画像が
+      // 新しい提案に付いたまま表示されるバグになる
+      setTryonResults(list.map(() => ({ status: 'idle' })))
+      setTryonError('')
       // 「却下→差し替え再提案」（refresh フロー）は、1案だけ返る想定なので自動で詳細モードへ
       // 新規提案はリスト表示モードから始めて、ユーザーに選ばせる
       if (opts?.fromDetailRefresh && list.length > 0) {
@@ -337,11 +346,10 @@ export default function OutfitSuggestionCard({
     setTryonResults((prev) =>
       prev.map((x, i) => (indexes.includes(i) ? { status: 'loading' } : x))
     )
+    // 服の画像 URL はサーバー側で clothes テーブルから引く。clothingId だけ送る
     const itemsForApi = validReps.map((r) => ({
       _idx: r.idx,
-      clothingImageUrl: r.rep!.image_url!,
       clothingId: r.rep!.id,
-      garmentDescription: r.rep!.name,
     }))
     try {
       const res = await fetch('/api/coord-tryon', {
@@ -350,11 +358,7 @@ export default function OutfitSuggestionCard({
         body: JSON.stringify({
           humanImageBase64: photo.base64,
           photoVersion: photo.version,
-          items: itemsForApi.map((it) => ({
-            clothingImageUrl: it.clothingImageUrl,
-            clothingId: it.clothingId,
-            garmentDescription: it.garmentDescription,
-          })),
+          items: itemsForApi.map((it) => ({ clothingId: it.clothingId })),
         }),
       })
       const data = await res.json()
@@ -373,7 +377,8 @@ export default function OutfitSuggestionCard({
         resultUrl?: string
         cached?: boolean
         photoVersion?: number
-        clothingId?: string
+        cacheKey?: string
+        error?: string
       }
       const predictions = data.predictions as Pred[]
 
@@ -387,20 +392,19 @@ export default function OutfitSuggestionCard({
             )
             return
           }
-          if (!p.predictionId) {
+          if (!p.predictionId || !p.cacheKey) {
             setTryonResults((prev) =>
-              prev.map((x, k) => (k === originalIdx ? { status: 'failed' } : x))
+              prev.map((x, k) => (k === originalIdx ? { status: 'failed', error: p.error } : x))
             )
             return
           }
           const photoVersion = p.photoVersion ?? photo.version
-          const clothingId = p.clothingId ?? itemsForApi[i].clothingId
           // 最大 60 秒ポーリング、3秒間隔
           for (let attempt = 0; attempt < 20; attempt++) {
             await new Promise((r) => setTimeout(r, 3000))
             try {
               const pr = await fetch(
-                `/api/coord-tryon?predictionId=${encodeURIComponent(p.predictionId)}&photoVersion=${photoVersion}&clothingId=${encodeURIComponent(clothingId)}`
+                `/api/coord-tryon?predictionId=${encodeURIComponent(p.predictionId)}&photoVersion=${photoVersion}&cacheKey=${encodeURIComponent(p.cacheKey)}`
               )
               const pd = await pr.json()
               if (pd.status === 'succeeded' && pd.resultUrl) {
@@ -731,7 +735,34 @@ export default function OutfitSuggestionCard({
         )}
       </div>
 
-      {/* ① 一番上：服画像コラージュ（仮の「自分が着たイメージ」） */}
+      {/* ⓪ 自分姿の試着画像（あれば最上部に。決定する瞬間に見えることが大事） */}
+      {selectedIndex !== null && tryonResults[selectedIndex]?.status === 'succeeded' && tryonResults[selectedIndex].resultUrl && (
+        <div style={{ position: 'relative', marginBottom: 12 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={tryonResults[selectedIndex].resultUrl}
+            alt={`${suggestion?.theme || 'この案'} を着た姿`}
+            style={{ width: '100%', maxHeight: 400, objectFit: 'contain', borderRadius: 12, background: '#FFF0F6' }}
+          />
+          <span
+            style={{
+              position: 'absolute',
+              top: 8,
+              left: 8,
+              background: 'rgba(255,255,255,0.92)',
+              color: '#993556',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              padding: '3px 8px',
+              borderRadius: 999,
+            }}
+          >
+            自分姿
+          </span>
+        </div>
+      )}
+
+      {/* ① 服画像コラージュ */}
       <CollageView items={suggestedItems} statusMap={itemStatus} />
 
       {/* ② 中段：アイテムカード縦並び（固定/却下ボタン付き） */}
@@ -1270,6 +1301,7 @@ function SuggestionsListView({
             clothes={clothes}
             onClick={() => onSelect(idx)}
             tryonResult={tryonResults?.[idx]}
+            onRetryTryon={onTryon ? () => onTryon([idx]) : undefined}
           />
         ))}
       </div>
@@ -1303,10 +1335,10 @@ function SuggestionsListView({
             {anyLoading
               ? '🪄 試着画像を生成中…（30〜60秒）'
               : phase === 'after-a'
-              ? `📸 B / C も試着して見比べる（+${restIndexes.length * 16}円）`
+              ? `📸 B / C も試着して見比べる（+${restIndexes.length * TRYON_COST_JPY}円）`
               : phase === 'all-done'
               ? '🔄 A 案を試着し直す'
-              : '📸 自分で試着して見る（A 案・16円）'}
+              : `📸 自分で試着して見る（A 案・${TRYON_COST_JPY}円）`}
           </button>
           {phase === 'initial' && !anyLoading && (
             <p style={{ fontSize: '0.66rem', color: '#999', marginTop: 4, textAlign: 'center' }}>
@@ -1348,12 +1380,14 @@ function SuggestionListItem({
   clothes,
   onClick,
   tryonResult,
+  onRetryTryon,
 }: {
   index: number
   suggestion: OutfitSuggestion
   clothes: ClothingItem[]
   onClick: () => void
   tryonResult?: TryonState
+  onRetryTryon?: () => void
 }) {
   const items = (suggestion.itemIds || [])
     .map((id) => clothes.find((c) => c.id === id))
@@ -1439,6 +1473,33 @@ function SuggestionListItem({
           {tryonResult.status === 'failed' && (
             <div style={{ textAlign: 'center', color: '#C44', fontSize: '0.78rem' }}>
               生成失敗{tryonResult.error ? `（${tryonResult.error}）` : ''}
+              {onRetryTryon && (
+                // 親カード全体が <button> なので button の入れ子は不可 → span で代替
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRetryTryon()
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation()
+                      onRetryTryon()
+                    }
+                  }}
+                  style={{
+                    display: 'block',
+                    marginTop: 8,
+                    color: '#C4779B',
+                    fontWeight: 700,
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                  }}
+                >
+                  🔄 この案だけ再試着する
+                </span>
+              )}
             </div>
           )}
           {tryonResult.status === 'succeeded' && tryonResult.resultUrl && (

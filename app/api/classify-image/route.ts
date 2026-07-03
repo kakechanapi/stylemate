@@ -92,8 +92,8 @@ export async function POST(request: Request) {
     ])
     const text = result.response.text()
 
-    // 使用ログ（ざっくり概算）
-    void logUsage({
+    // 使用ログ（ざっくり概算）。void は Vercel で実行保証がないため await
+    await logUsage({
       service: 'gemini_style_classify',
       operation: 'classifyImage',
       tokensIn: Math.ceil((PROMPT.length + cleanBase64.length / 100) / 4),

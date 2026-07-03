@@ -5,6 +5,7 @@ import { listEvents } from '@/lib/events'
 import { listOutfits } from '@/lib/outfits'
 import { listClothes } from '@/lib/clothes'
 import { listFriends } from '@/lib/friends'
+import { toJSTDateStr } from '@/lib/date-helpers'
 import CalendarHybridView from '@/components/CalendarHybridView'
 
 export default async function CalendarPage({
@@ -15,7 +16,10 @@ export default async function CalendarPage({
   const { month } = await searchParams
 
   // 表示対象月（YYYY-MM）
-  const base = month ? new Date(`${month}-01T00:00:00`) : new Date()
+  // Vercel は UTC なので、無指定時の「今月」は JST 基準で決める
+  // （UTC のままだと JST の月初 0:00〜8:59 に前月が表示される）
+  const baseMonth = month || toJSTDateStr().slice(0, 7)
+  const base = new Date(`${baseMonth}-01T00:00:00`)
   const year = base.getFullYear()
   const m = base.getMonth()
 

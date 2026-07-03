@@ -1,17 +1,20 @@
 // コーデ試着 API（IDM-VTON 流用・自分用）
 // 既存 /api/tryon は friend_id 必須なのでそれとは別エンドポイント。
 //
-// POST：指定アイテムを並列で試着開始。photoVersion + clothingId をキャッシュキーに
-//       Storage を先に検索し、ヒットしたら predictions.create をスキップ。
-// GET ：個別ポーリング。succeeded したら Storage に保存して publicUrl 返す。
+// POST：clothingId のみ受け取り、服の画像 URL は必ずサーバー側で clothes テーブルから引く
+//       （任意 URL を渡して汎用試着サービスとして悪用されるのを防ぐ）。
+//       キャッシュキー = clothingId + 服画像URLのハッシュ。photoVersion フォルダ配下に置くので
+//       「自分写真を差し替えた」「服の画像を差し替えた」のどちらでも自動で再生成される。
+// GET ：個別ポーリング。succeeded したら private バケットに保存して signed URL を返す。
 //
 // プライバシー方針：
 // - 人物画像は IndexedDB 由来の base64 を受け取り、DB に保存しない
-// - 試着結果のみ Storage `tryon-results` に保存（パス：{user_id}/coord/v{photoVersion}/{clothingId}.{ext}）
-// - photoVersion を組み込むことで「自分写真を更新したら旧キャッシュは使われない」
+// - 試着結果（顔が映る）は private バケット `coord-tryon-results` に保存し、
+//   期限付き signed URL でのみ配信（migration 0010）
 
 import { NextRequest, NextResponse } from 'next/server'
 import Replicate from 'replicate'
+import { createHash } from 'crypto'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { checkAdmin } from '@/lib/admin'
 import {
@@ -20,10 +23,16 @@ import {
   SERVICE_COSTS_JPY,
 } from '@/lib/usage-cost'
 
+// cuuupid/idm-vton（既存 /api/tryon と同じバージョン）
 const MODEL_VERSION =
   '0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985'
 
-const BUCKET = 'tryon-results'
+const BUCKET = 'coord-tryon-results'
+const SIGNED_URL_TTL_SEC = 60 * 60 * 24 // 24時間（キャッシュヒット毎に再発行される）
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// cacheKey = {uuid}-{hash8}。Storage パスに入るので形式を厳密に縛る（../ 等の混入防止）
+const CACHE_KEY_RE = /^[0-9a-f-]{36}-[0-9a-f]{8}$/i
 
 function getReplicate() {
   const token = process.env.REPLICATE_API_TOKEN
@@ -31,34 +40,37 @@ function getReplicate() {
   return new Replicate({ auth: token })
 }
 
-interface CoordItem {
-  clothingImageUrl: string
-  clothingId: string
-  garmentDescription?: string
-}
-
 function storageFolder(userId: string, photoVersion: number) {
   return `${userId}/coord/v${photoVersion}`
 }
 
-/** キャッシュ存在チェック：あれば publicUrl、なければ null */
+function buildCacheKey(clothingId: string, imageUrl: string) {
+  const hash = createHash('sha1').update(imageUrl).digest('hex').slice(0, 8)
+  return `${clothingId}-${hash}`
+}
+
+type SupabaseServer = Awaited<ReturnType<typeof createSupabaseServerClient>>
+
+/** キャッシュ存在チェック：あれば signed URL、なければ null */
 async function findCached(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  supabase: SupabaseServer,
   userId: string,
   photoVersion: number,
-  clothingId: string
+  cacheKey: string
 ): Promise<string | null> {
   const folder = storageFolder(userId, photoVersion)
   const { data, error } = await supabase.storage.from(BUCKET).list(folder, {
-    search: clothingId,
+    search: cacheKey,
     limit: 5,
   })
   if (error || !data) return null
-  // clothingId.png / clothingId.jpg など、`clothingId.` で始まるファイル
-  const hit = data.find((f) => f.name.startsWith(clothingId + '.'))
+  const hit = data.find((f) => f.name.startsWith(cacheKey + '.'))
   if (!hit) return null
-  const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(`${folder}/${hit.name}`)
-  return pub.publicUrl
+  const { data: signed, error: signErr } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(`${folder}/${hit.name}`, SIGNED_URL_TTL_SEC)
+  if (signErr || !signed) return null
+  return signed.signedUrl
 }
 
 // ─── POST: 並列試着 + キャッシュチェック ───
@@ -86,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     const { humanImageBase64, items, photoVersion } = (await request.json()) as {
       humanImageBase64?: string
-      items?: CoordItem[]
+      items?: Array<{ clothingId?: string }>
       photoVersion?: number
     }
     if (!humanImageBase64 || !Array.isArray(items) || items.length === 0) {
@@ -98,16 +110,42 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    const clothingIds = items.map((it) => it.clothingId || '')
+    if (clothingIds.some((id) => !UUID_RE.test(id))) {
+      return NextResponse.json(
+        { error: 'invalid clothingId', userMessage: '服の指定が不正です。' },
+        { status: 400 }
+      )
+    }
     const pv = Number.isInteger(photoVersion) && photoVersion! > 0 ? photoVersion! : 1
 
-    // 各 item をキャッシュチェック + 新規 create に振り分け
-    const cacheResults = await Promise.all(
-      items.map(async (item, index) => {
-        const cachedUrl = await findCached(supabase, user.id, pv, item.clothingId)
-        return { index, item, cachedUrl }
+    // 服の情報はサーバー側で引く（自分の服しか試着できない）
+    const { data: clothesRows, error: clothesErr } = await supabase
+      .from('clothes')
+      .select('id, name, image_url')
+      .in('id', clothingIds)
+      .eq('user_id', user.id)
+    if (clothesErr) {
+      return NextResponse.json(
+        { error: clothesErr.message, userMessage: '服の情報を取得できませんでした。' },
+        { status: 500 }
+      )
+    }
+    const clothById = new Map((clothesRows || []).map((c) => [c.id as string, c]))
+
+    // 各 item を「キャッシュヒット / 新規生成 / 不正」に振り分け
+    const prepared = await Promise.all(
+      clothingIds.map(async (id, index) => {
+        const cloth = clothById.get(id)
+        if (!cloth || !cloth.image_url) {
+          return { index, id, cloth: null, cacheKey: null, cachedUrl: null }
+        }
+        const cacheKey = buildCacheKey(id, cloth.image_url as string)
+        const cachedUrl = await findCached(supabase, user.id, pv, cacheKey)
+        return { index, id, cloth, cacheKey, cachedUrl }
       })
     )
-    const needsCreate = cacheResults.filter((r) => !r.cachedUrl)
+    const needsCreate = prepared.filter((p) => p.cloth && !p.cachedUrl)
 
     // 新規作成分の月間上限チェック（キャッシュヒットは無料）
     if (needsCreate.length > 0) {
@@ -140,18 +178,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 各案を並列処理：キャッシュは即返す、新規のみ predictions.create
     const results = await Promise.all(
-      cacheResults.map(async (r) => {
-        if (r.cachedUrl) {
+      prepared.map(async (p) => {
+        if (!p.cloth || !p.cacheKey) {
           return {
-            caseIndex: r.index,
+            caseIndex: p.index,
+            predictionId: null,
+            status: 'failed' as const,
+            cached: false,
+            error: '服が見つからないか、画像がありません。',
+          }
+        }
+        if (p.cachedUrl) {
+          return {
+            caseIndex: p.index,
             predictionId: null,
             status: 'succeeded' as const,
-            resultUrl: r.cachedUrl,
+            resultUrl: p.cachedUrl,
             cached: true,
             photoVersion: pv,
-            clothingId: r.item.clothingId,
+            cacheKey: p.cacheKey,
           }
         }
         try {
@@ -159,37 +205,38 @@ export async function POST(request: NextRequest) {
             version: MODEL_VERSION,
             input: {
               human_img: humanImageBase64,
-              garm_img: r.item.clothingImageUrl,
-              garment_des: r.item.garmentDescription || 'clothing item',
+              garm_img: p.cloth.image_url,
+              garment_des: (p.cloth.name as string) || 'clothing item',
               is_checked: true,
               is_checked_crop: true,
               denoise_steps: 40,
               seed: 42,
             },
           })
-          void logUsage({
+          // 課金確定時点で記録。void だと Vercel の凍結で欠落しうるので await
+          await logUsage({
             service: 'replicate_tryon',
             operation: 'coord-tryon.create',
             externalId: prediction.id,
-            meta: { caseIndex: r.index, clothingId: r.item.clothingId },
+            meta: { caseIndex: p.index, clothingId: p.id },
           })
           return {
-            caseIndex: r.index,
+            caseIndex: p.index,
             predictionId: prediction.id,
             status: prediction.status,
             cached: false,
             photoVersion: pv,
-            clothingId: r.item.clothingId,
+            cacheKey: p.cacheKey,
           }
         } catch (e) {
-          console.error(`[coord-tryon] case ${r.index} create error:`, e)
+          console.error(`[coord-tryon] case ${p.index} create error:`, e)
           return {
-            caseIndex: r.index,
+            caseIndex: p.index,
             predictionId: null,
             status: 'failed' as const,
             cached: false,
             photoVersion: pv,
-            clothingId: r.item.clothingId,
+            cacheKey: p.cacheKey,
             error: e instanceof Error ? e.message : '不明なエラー',
           }
         }
@@ -211,15 +258,15 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const predictionId = request.nextUrl.searchParams.get('predictionId')
   const photoVersionStr = request.nextUrl.searchParams.get('photoVersion')
-  const clothingId = request.nextUrl.searchParams.get('clothingId')
+  const cacheKey = request.nextUrl.searchParams.get('cacheKey')
   if (!predictionId) {
     return NextResponse.json({ error: 'missing predictionId' }, { status: 400 })
   }
-  // photoVersion + clothingId はキャッシュ保存先計算のため必須
   const photoVersion = Number(photoVersionStr)
-  if (!Number.isInteger(photoVersion) || photoVersion <= 0 || !clothingId) {
+  // cacheKey は Storage パスに入るので形式チェック必須（パストラバーサル防止）
+  if (!Number.isInteger(photoVersion) || photoVersion <= 0 || !cacheKey || !CACHE_KEY_RE.test(cacheKey)) {
     return NextResponse.json(
-      { error: 'missing photoVersion or clothingId' },
+      { error: 'missing or invalid photoVersion / cacheKey' },
       { status: 400 }
     )
   }
@@ -252,16 +299,15 @@ export async function GET(request: NextRequest) {
         ? String(prediction.output[0])
         : String(prediction.output)
 
-      // 顔が映るので Storage にユーザー隔離保存。
-      // パスを clothingId ベースにしてキャッシュ再利用可能に。
-      let publicUrl: string | null = null
+      // private バケットにユーザー隔離保存 → signed URL で返す
+      let signedUrl: string | null = null
       try {
         const imgRes = await fetch(tempUrl)
         if (imgRes.ok) {
           const buf = Buffer.from(await imgRes.arrayBuffer())
           const ext =
             (imgRes.headers.get('content-type') || 'image/png').split('/')[1] || 'png'
-          const path = `${storageFolder(user.id, photoVersion)}/${clothingId}.${ext}`
+          const path = `${storageFolder(user.id, photoVersion)}/${cacheKey}.${ext}`
           const { error: uploadError } = await supabase.storage
             .from(BUCKET)
             .upload(path, buf, {
@@ -271,17 +317,21 @@ export async function GET(request: NextRequest) {
           if (uploadError) {
             console.error('[api/coord-tryon GET] storage upload error:', uploadError.message)
           } else {
-            const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path)
-            publicUrl = pub.publicUrl
+            const { data: signed } = await supabase.storage
+              .from(BUCKET)
+              .createSignedUrl(path, SIGNED_URL_TTL_SEC)
+            signedUrl = signed?.signedUrl || null
           }
         }
       } catch (e) {
         console.error('[api/coord-tryon GET] image fetch/upload error:', e)
       }
 
+      // Storage 保存に失敗した場合は Replicate の一時 URL でフォールバック
+      // （migration 0010 未実行でも機能自体は動く。ただし URL は約1時間で失効）
       return NextResponse.json({
         status: 'succeeded',
-        resultUrl: publicUrl || tempUrl,
+        resultUrl: signedUrl || tempUrl,
       })
     }
 

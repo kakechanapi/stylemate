@@ -189,11 +189,13 @@ export default function SelfPhotoRegister({ show }: Props) {
         </button>
       )}
 
+      {/* capture は付けない：iOS Safari で capture があるとフォトライブラリ選択を
+          スキップしてカメラを直接起動してしまう。全身写真は「撮ってもらった既存写真」を
+          選ぶのが主流なので、ギャラリー/カメラの選択肢を残す */}
       <input
         ref={fileRef}
         type="file"
         accept="image/*"
-        capture="environment"
         style={{ display: 'none' }}
         onChange={(e) => {
           const f = e.target.files?.[0]

@@ -344,7 +344,8 @@ ${clothesSummary || '（まだ服が登録されていません）'}${closetStat
   try {
     const text = await callGeminiWithRetry(prompt, vision.parts)
     // 使用ログ（成功時のみ。失敗時はリトライ済で課金は変動する想定）
-    void logUsage({
+    // void は Vercel で実行保証がないため await（logUsage は内部で例外を握るので安全）
+    await logUsage({
       service: 'gemini_outfit_suggest',
       operation: 'generateContent',
       tokensIn: Math.ceil(prompt.length / 4), // 概算（1トークン≒4文字）

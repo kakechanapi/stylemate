@@ -48,11 +48,16 @@ export async function confirmTodayOutfitAction(input: {
   })
   if (result.ok) {
     // 学習フィードバック：採用コーデは LIKE、不採用案は NOPE で記録。
-    // 失敗してもコーデ確定自体は成功扱いにする（学習はベストエフォート）
-    void recordOutfitChoice({
-      chosen_cloth_ids: input.cloth_ids,
-      rejected_cloth_ids: input.unchosen_cloth_ids,
-    }).catch((e) => console.error('[confirmTodayOutfit] learning record failed:', e))
+    // Vercel はレスポンス返却後に関数を凍結するため void だと実行保証がない。
+    // DB insert 一発（数十ms）なので await する。失敗しても確定自体は成功扱い。
+    try {
+      await recordOutfitChoice({
+        chosen_cloth_ids: input.cloth_ids,
+        rejected_cloth_ids: input.unchosen_cloth_ids,
+      })
+    } catch (e) {
+      console.error('[confirmTodayOutfit] learning record failed:', e)
+    }
     revalidatePath('/')
     revalidatePath('/events')
   }

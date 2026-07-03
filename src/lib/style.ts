@@ -2,6 +2,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createSupabaseServerClient } from './supabase/server'
 import { logUsage } from './usage-cost'
+import { toJSTDateStr } from './date-helpers'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
@@ -42,10 +43,22 @@ export async function getStyleProfile(): Promise<StyleProfile | null> {
   return data as StyleProfile | null
 }
 
-export async function listSwipes(opts?: { liked?: boolean; limit?: number }): Promise<StyleSwipe[]> {
+export async function listSwipes(opts?: {
+  liked?: boolean
+  limit?: number
+  /** この source のみに絞る（例：['outfit_confirm']） */
+  sources?: string[]
+  /** この source を除外する（例：['outfit_unchosen']） */
+  excludeSources?: string[]
+}): Promise<StyleSwipe[]> {
   const supabase = await createSupabaseServerClient()
   let q = supabase.from('style_swipes').select('*').order('created_at', { ascending: false })
   if (opts?.liked !== undefined) q = q.eq('liked', opts.liked)
+  if (opts?.sources && opts.sources.length > 0) q = q.in('source', opts.sources)
+  if (opts?.excludeSources && opts.excludeSources.length > 0) {
+    // source が NULL の行も残したいので or 条件で書く
+    q = q.or(`source.is.null,source.not.in.(${opts.excludeSources.join(',')})`)
+  }
   if (opts?.limit) q = q.limit(opts.limit)
   const { data, error } = await q
   if (error) return []
@@ -87,30 +100,42 @@ export async function refreshStyleProfile(): Promise<{ ok: boolean; profile?: St
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'not authenticated' }
 
-  const likedSwipes = await listSwipes({ liked: true, limit: 50 })
-  const dislikedSwipes = await listSwipes({ liked: false, limit: 30 })
+  // シグナル強度別に取得する。
+  // - スワイプ/固定の LIKE と、コーデ確定（実際に着ると決めた）は別枠で取り、
+  //   確定 LIKE の洪水がスワイプ由来データを 50件枠から押し出すのを防ぐ
+  // - outfit_unchosen（A/B/C で選ばれなかっただけ）は「嫌い」ではないので、
+  //   明示的な嫌いと混ぜず、弱い参考情報としてラベル分けして渡す
+  const [likedSwipes, confirmedLikes, dislikedSwipes, unchosenSwipes] = await Promise.all([
+    listSwipes({ liked: true, excludeSources: ['outfit_confirm'], limit: 40 }),
+    listSwipes({ liked: true, sources: ['outfit_confirm'], limit: 30 }),
+    listSwipes({ liked: false, excludeSources: ['outfit_unchosen'], limit: 30 }),
+    listSwipes({ liked: false, sources: ['outfit_unchosen'], limit: 20 }),
+  ])
 
-  if (likedSwipes.length < 5) {
+  const totalLikes = likedSwipes.length + confirmedLikes.length
+  if (totalLikes < 5) {
     return { ok: false, error: 'スワイプが少なすぎます（5件以上必要）' }
   }
 
-  const likedSummary = likedSwipes
-    .map((s) => `- ${s.item_name || '商品'}${s.brand ? `（${s.brand}）` : ''}`)
-    .join('\n')
-  const dislikedSummary = dislikedSwipes
-    .map((s) => `- ${s.item_name || '商品'}${s.brand ? `（${s.brand}）` : ''}`)
-    .join('\n')
+  const fmt = (list: StyleSwipe[]) =>
+    list.map((s) => `- ${s.item_name || '商品'}${s.brand ? `（${s.brand}）` : ''}`).join('\n')
 
-  const prompt = `あなたはファッション系統を分析する AI です。以下はユーザーがスワイプで好き/嫌い判定したアイテムです。
+  const prompt = `あなたはファッション系統を分析する AI です。以下はユーザーの行動から得られた好みのシグナルです。シグナルの強さを考慮して分析してください。
 
-【好きと判定したアイテム（${likedSwipes.length}件）】
-${likedSummary}
+【好きと判定したアイテム（スワイプ・${likedSwipes.length}件）】
+${fmt(likedSwipes)}
 
-${dislikedSwipes.length > 0
-  ? `【嫌いと判定したアイテム（${dislikedSwipes.length}件）】\n${dislikedSummary}`
+${confirmedLikes.length > 0
+  ? `【実際に「今日のコーデ」として選んだ服（最も強い好みシグナル・${confirmedLikes.length}件）】\n${fmt(confirmedLikes)}\n`
   : ''}
-
+${dislikedSwipes.length > 0
+  ? `【嫌いと判定したアイテム（${dislikedSwipes.length}件）】\n${fmt(dislikedSwipes)}\n`
+  : ''}
+${unchosenSwipes.length > 0
+  ? `【提案されたが選ばれなかった服（弱い参考シグナル・嫌いとは限らない・${unchosenSwipes.length}件）】\n${fmt(unchosenSwipes)}\n`
+  : ''}
 これらから、ユーザーの**ファッション嗜好**を多角的に推定してください。
+「選ばれなかった服」は好きな服が含まれることもあるため、明確な傾向（同じ系統が繰り返し選ばれない等）がある場合のみ弱い減点材料として扱うこと。
 
 【考慮する観点】
 1. **系統**：きれいめ / カジュアル / ストリート / フェミニン / モード / ナチュラル / 韓国系 / 古着MIX / 地雷系 / 量産型 / ゴスロリ / 原宿系 / ガーリー / お姉系 / コンサバ など
@@ -131,8 +156,8 @@ ${dislikedSwipes.length > 0
     const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
     const result = await model.generateContent(prompt)
     const text = result.response.text()
-    // 使用ログ
-    void logUsage({
+    // 使用ログ（void は Vercel で実行保証がないため await）
+    await logUsage({
       service: 'gemini_style_profile',
       operation: 'refreshStyleProfile',
       tokensIn: Math.ceil(prompt.length / 4),
@@ -149,7 +174,8 @@ ${dislikedSwipes.length > 0
         user_id: user.id,
         tags: parsed.tags || [],
         summary: parsed.summary || '',
-        swipe_count: likedSwipes.length + dislikedSwipes.length,
+        swipe_count:
+          likedSwipes.length + confirmedLikes.length + dislikedSwipes.length + unchosenSwipes.length,
         updated_at: new Date().toISOString(),
       })
       .select('*')
@@ -189,6 +215,19 @@ export async function recordOutfitChoice(input: {
   const rejected = rejectedRaw.filter((id) => !chosenSet.has(id))
 
   if (chosen.length === 0 && rejected.length === 0) {
+    return { ok: true, liked: 0, noped: 0 }
+  }
+
+  // 同日重複ガード：リセット→再確定を繰り返すたびに同じ服の LIKE が
+  // 積み増しされてプロファイルが偏るのを防ぐ。今日すでに確定記録があればスキップ。
+  const jstDayStart = new Date(`${toJSTDateStr()}T00:00:00+09:00`).toISOString()
+  const { count: todayCount } = await supabase
+    .from('style_swipes')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('source', 'outfit_confirm')
+    .gte('created_at', jstDayStart)
+  if ((todayCount || 0) > 0) {
     return { ok: true, liked: 0, noped: 0 }
   }
 

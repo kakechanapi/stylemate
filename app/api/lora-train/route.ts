@@ -124,7 +124,8 @@ export async function POST(request: NextRequest) {
     )
 
     // 使用ログ記録（訓練開始時点で課金確定するため、ここで残す）
-    void logUsage({
+    // void だと Vercel のレスポンス後凍結で記録が欠落しうる（上限管理の穴）→ await
+    await logUsage({
       service: 'replicate_lora_train',
       operation: 'trainings.create',
       externalId: training.id,
