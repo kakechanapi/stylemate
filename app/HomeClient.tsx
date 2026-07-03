@@ -14,9 +14,11 @@ interface Props {
   friendNames: Record<string, string>
   todayOutfit: Outfit | null
   isAdmin?: boolean
+  // オンボーディング完了直後（/?suggest=1）：自動で提案を開始して「魔法」を見せる
+  autoSuggest?: boolean
 }
 
-export default function HomeClient({ clothes, userEmail, upcomingEvents, friendNames, todayOutfit, isAdmin }: Props) {
+export default function HomeClient({ clothes, userEmail, upcomingEvents, friendNames, todayOutfit, isAdmin, autoSuggest }: Props) {
   const [tpo, setTpo] = useState('casual')
   const [selectedEventId, setSelectedEventId] = useState<string | null>(
     upcomingEvents[0]?.id || null
@@ -203,6 +205,7 @@ export default function HomeClient({ clothes, userEmail, upcomingEvents, friendN
           todayOutfit={todayOutfit}
           sceneLabel={selectedEvent ? selectedEvent.title : undefined}
           isAdmin={isAdmin}
+          autoStart={autoSuggest}
         />
       )}
 

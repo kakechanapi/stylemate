@@ -12,6 +12,9 @@ export type AppEvent =
   | 'outfit_confirmed'
   | 'cloth_registered'
   | 'tryon_generated'
+  | 'onboarding_started'
+  | 'onboarding_completed'
+  | 'onboarding_skipped'
 
 export async function logEvent(
   event: AppEvent,

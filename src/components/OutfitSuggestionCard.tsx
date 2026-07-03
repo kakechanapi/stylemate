@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ClothingItem, Outfit } from '@/types/fashion'
 import { SCENE_LABEL } from './TPOSelector'
@@ -38,6 +38,8 @@ interface Props {
   sceneLabel?: string
   // 管理者かどうか。コーデ試着ベータ機能のボタン表示制御に使う
   isAdmin?: boolean
+  // true ならマウント後に自動で提案を開始（オンボーディング直後の魔法演出用）
+  autoStart?: boolean
 }
 
 interface TryonState {
@@ -73,6 +75,7 @@ export default function OutfitSuggestionCard({
   todayOutfit,
   sceneLabel,
   isAdmin,
+  autoStart,
 }: Props) {
   // 表示用シーン名：明示指定があればそれ優先、なければ TPO から
   const displaySceneLabel = sceneLabel || SCENE_LABEL[tpo] || 'コーデ'
@@ -157,6 +160,18 @@ export default function OutfitSuggestionCard({
       // 容量オーバー等は無視
     }
   }, [suggestions, selectedIndex, itemStatus, lastWeather, missingCategories, draftLoaded, todayOutfit])
+
+  // オンボーディング直後（/?suggest=1）：自動で提案を開始して「魔法」を見せる。
+  // ドラフト復元を待ってから判定し、既に提案や確定があれば何もしない
+  const autoStartFired = useRef(false)
+  useEffect(() => {
+    if (!autoStart || autoStartFired.current) return
+    if (!draftLoaded || todayOutfit || loading) return
+    if (suggestions.length > 0) return
+    autoStartFired.current = true
+    void fetchSuggestion()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, draftLoaded, todayOutfit, loading, suggestions.length])
 
   const fetchSuggestion = async (opts?: {
     fixedItemIds?: string[]
