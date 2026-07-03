@@ -424,8 +424,36 @@ export default async function MyPage() {
           設定
         </h2>
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #F5C6D8' }}>
-          <MenuRow icon="📜" label="利用規約" disabled hint="準備中" />
-          <MenuRow icon="🔒" label="プライバシーポリシー" disabled hint="準備中" />
+          <Link
+            href="/terms"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '14px 16px',
+              borderBottom: '1px solid #F5C6D8',
+              color: '#333',
+              textDecoration: 'none',
+            }}
+          >
+            <span style={{ fontSize: '1.1rem', marginRight: 12 }}>📜</span>
+            <span style={{ flex: 1, fontSize: '0.9rem' }}>利用規約</span>
+            <span style={{ color: '#bbb' }}>›</span>
+          </Link>
+          <Link
+            href="/privacy"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '14px 16px',
+              borderBottom: '1px solid #F5C6D8',
+              color: '#333',
+              textDecoration: 'none',
+            }}
+          >
+            <span style={{ fontSize: '1.1rem', marginRight: 12 }}>🔒</span>
+            <span style={{ flex: 1, fontSize: '0.9rem' }}>プライバシーポリシー</span>
+            <span style={{ color: '#bbb' }}>›</span>
+          </Link>
           <MenuRow icon="❓" label="ヘルプ" disabled hint="準備中" last />
         </div>
       </section>

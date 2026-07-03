@@ -237,6 +237,14 @@ function LoginInner() {
             送られてきたメールのリンクをタップしてログインします。
           </p>
         </form>
+
+        <p style={{ marginTop: 20, fontSize: '0.68rem', color: '#aaa', textAlign: 'center', lineHeight: 1.6 }}>
+          ログインすると{' '}
+          <a href="/terms" style={{ color: '#C4779B' }}>利用規約</a>
+          {' '}と{' '}
+          <a href="/privacy" style={{ color: '#C4779B' }}>プライバシーポリシー</a>
+          {' '}に同意したものとみなされます。
+        </p>
         </>
       )}
     </div>
