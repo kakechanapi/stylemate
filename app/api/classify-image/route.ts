@@ -9,6 +9,7 @@
 
 import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { logUsage } from '@/lib/usage-cost'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
@@ -67,6 +68,18 @@ const PROMPT = `あなたはファッション分類の専門家です。送ら�
 
 export async function POST(request: Request) {
   try {
+    // 認証必須：Gemini Vision を叩く有料エンドポイント（未ログイン悪用防止）
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json<ClassifyImageResponse>(
+        { ok: false, error: 'not authenticated' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const imageBase64: string | undefined = body.imageBase64
     const mimeType: string = body.mimeType || 'image/jpeg'

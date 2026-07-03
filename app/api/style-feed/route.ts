@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { searchProducts } from '@/lib/product-search'
 import { toGenderFilter } from '@/lib/product-search/types'
 import { getMe } from '@/lib/friends'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 // 性別別のキーワード候補
 // 共通キーワードは両方で再利用、性別寄りのキーワードはどちらかに偏らせる
@@ -25,6 +26,15 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export async function GET(request: Request) {
+  // 認証必須：楽天 API のレート制限保護（products/search と同じ理由）
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'not authenticated' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
 
   // 性別フィルタ：クエリ優先 → 未指定なら自分のプロフィールから

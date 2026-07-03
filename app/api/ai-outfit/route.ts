@@ -12,6 +12,17 @@ import { getMe } from '@/lib/friends'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
+  // 認証必須：Gemini（Vision 画像12枚込み）を叩く有料エンドポイント。
+  // middleware は /api/* を素通しにするので、ここで自前ガードしないと
+  // 未ログインの誰でも叩ける AI プロキシになってしまう
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'not authenticated' }, { status: 401 })
+  }
+
   const body = await request.json()
 
   // 被り回避：eventId or friend_ids から「最近この人と着た服」を取得
@@ -20,7 +31,6 @@ export async function POST(request: Request) {
   let tpo = body.tpo || 'casual'
 
   if (body.eventId && !recentClothIds.length) {
-    const supabase = await createSupabaseServerClient()
     const { data: ev } = await supabase
       .from('events')
       .select('title, tpo, friend_ids')

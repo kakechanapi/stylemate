@@ -12,8 +12,19 @@ import { NextResponse } from 'next/server'
 import { searchProducts } from '@/lib/product-search'
 import { toGenderFilter } from '@/lib/product-search/types'
 import { getMe } from '@/lib/friends'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export async function GET(request: Request) {
+  // 認証必須：楽天 API はアプリID単位のレート制限があるため、
+  // 未ログインの連打でアプリごと throttle されるのを防ぐ
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'not authenticated' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
   const keyword = searchParams.get('q') || ''
   if (!keyword.trim()) return NextResponse.json([])
