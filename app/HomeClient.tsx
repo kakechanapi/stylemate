@@ -4,6 +4,7 @@ import Link from 'next/link'
 import WeatherWidget from '@/components/WeatherWidget'
 import TPOSelector from '@/components/TPOSelector'
 import OutfitSuggestionCard from '@/components/OutfitSuggestionCard'
+import NotificationSetupCard from '@/components/NotificationSetupCard'
 import { ClothingItem, Outfit } from '@/types/fashion'
 import type { EventItem } from '@/lib/events'
 
@@ -208,6 +209,9 @@ export default function HomeClient({ clothes, userEmail, upcomingEvents, friendN
           autoStart={autoSuggest}
         />
       )}
+
+      {/* 毎朝の通知セットアップ（未設定の時だけ・✕で消せる） */}
+      <NotificationSetupCard variant="home" />
 
       {/* Quick actions */}
       <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
