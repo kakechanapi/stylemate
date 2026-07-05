@@ -39,12 +39,25 @@ export default function NotificationSetupCard({
   const [error, setError] = useState('')
 
   const refresh = async () => {
-    if (isPushSupported()) {
-      const sub = await getExistingSubscription()
-      setState(sub ? 'subscribed' : 'can-subscribe')
-    } else if (isIOS() && !isStandalone()) {
-      setState('ios-needs-install')
-    } else {
+    try {
+      // iOS は「ホーム画面に追加」済みでないと Push が動かない。
+      // iOS 16.4+ の通常 Safari タブでも PushManager/Notification オブジェクト自体は
+      // 存在することがあり、isPushSupported() を先に判定すると誤って
+      // 「購読可能」扱いになってしまう。iOS かどうかを最優先でチェックする。
+      if (isIOS() && !isStandalone()) {
+        setState('ios-needs-install')
+        return
+      }
+      if (isPushSupported()) {
+        const sub = await getExistingSubscription()
+        setState(sub ? 'subscribed' : 'can-subscribe')
+      } else {
+        setState('unsupported')
+      }
+    } catch (e) {
+      // 何らかの例外で state が 'loading' のまま固まると home ではカードが
+      // 永久に非表示になるため、必ずどこかの状態へ着地させる
+      console.error('[NotificationSetupCard] refresh failed:', e)
       setState('unsupported')
     }
   }
